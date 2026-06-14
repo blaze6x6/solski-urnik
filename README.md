@@ -42,7 +42,7 @@ Sistem za upravljanje šolskega urnika z Docker podporo, Express.js API backendo
 
 ```bash
 # Kloniraj repozitorij
-git clone <repo-url>
+git clone https://github.com/blaze6x6/solski-urnik
 cd solski-urnik
 
 # Kopiraj .env datoteko
