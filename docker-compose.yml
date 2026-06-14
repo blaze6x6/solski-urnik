@@ -1,0 +1,93 @@
+services:
+  # PostgreSQL Database
+  db:
+    image: postgres:16-alpine
+    container_name: solski-urnik-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: solski_urnik
+      POSTGRES_USER: solski_admin
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-SolskiUrnik2025!}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./docker/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U solski_admin -d solski_urnik"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Alternative: MariaDB (uncomment to use instead of PostgreSQL)
+  # db:
+  #   image: mariadb:11
+  #   container_name: solski_urnik_db
+  #   restart: unless-stopped
+  #   environment:
+  #     MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-rootpassword}
+  #     MYSQL_DATABASE: solski_urnik
+  #     MYSQL_USER: solski_admin
+  #     MYSQL_PASSWORD: ${DB_PASSWORD:-SolskiUrnik2025!}
+  #   ports:
+  #     - "3306:3306"
+  #   volumes:
+  #     - mariadb_data:/var/lib/mysql
+  #     - ./docker/init-mariadb.sql:/docker-entrypoint-initdb.d/init.sql
+  #   healthcheck:
+  #     test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+  #     interval: 10s
+  #     timeout: 5s
+  #     retries: 5
+
+  # Frontend (Nginx serving static build)
+  frontend:
+    image: blaze666/solski-urnik:latest
+    container_name: solski-urnik
+    restart: unless-stopped
+    ports:
+      - "8800:80"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  # Backend API (Express.js)
+  api:
+    image: blaze666/solski-urnik-api:latest
+    container_name: solski-urnik-api
+    restart: unless-stopped
+    environment:
+      DB_HOST: db
+      DB_PORT: "5432"
+      DB_NAME: solski_urnik
+      DB_USER: solski_admin
+      DB_PASSWORD: ${DB_PASSWORD:-SolskiUrnik2025!}
+      JWT_SECRET: ${JWT_SECRET:-solski-urnik-jwt-secret-change-me}
+      PORT: "3001"
+    ports:
+      - "3001:3001"
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3001/api/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+
+  # Adminer - Database management UI (optional, for development)
+#  adminer:
+#    image: adminer:latest
+#    container_name: solski_urnik_adminer
+#    restart: unless-stopped
+#    ports:
+#      - "8081:8080"
+#    depends_on:
+#      - db
+
+volumes:
+  postgres_data:
+    driver: local
+  # mariadb_data:
+  #   driver: local
