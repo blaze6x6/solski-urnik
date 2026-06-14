@@ -88,11 +88,7 @@ export default function LoginPage({ onLogin }: Props) {
           </button>
         </form>
 
-        <div className="mt-6 p-4 bg-gray-50 rounded-lg">
-          <p className="text-xs text-gray-500 text-center">
-            <span className="font-semibold">Admin:</span> admin / admin123
-          </p>
-        </div>
+        
       </div>
     </div>
   );
