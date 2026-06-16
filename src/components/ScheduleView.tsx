@@ -193,7 +193,7 @@ export default function ScheduleView({ classId, className, title }: Props) {
                         )}
                         {events.length > 0 && inSchoolYear && (
                           <div className={`mt-1 text-[10px] font-medium ${isToday ? 'text-blue-100' : 'text-blue-600'}`}>
-                            {events.length} dogod{events.length === 1 ? 'ek' : 'ki'}
+                            {events.length} {getEventLabel(events.length)}
                           </div>
                         )}
                       </th>
