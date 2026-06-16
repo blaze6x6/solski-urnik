@@ -26,6 +26,14 @@ export default function ScheduleView({ classId, className, title }: Props) {
   const weekStart = startOfWeek(currentDate, { weekStartsOn: 1 });
   const weekDates = Array.from({ length: 5 }, (_, i) => addDays(weekStart, i));
 
+// Funkcija za pravilno sklanjanje števnikov
+  const getEventLabel = (count: number) => {
+    if (count === 1) return 'dogodek';
+    if (count === 2) return 'dogodka';
+    if (count === 3 || count === 4) return 'dogodki';
+    return 'dogodkov';
+  };
+
   // Load static data
   useEffect(() => {
     Promise.all([
