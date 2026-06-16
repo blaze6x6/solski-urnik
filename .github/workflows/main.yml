@@ -25,7 +25,9 @@ jobs:
           file: ./Dockerfile
           push: true
           # Uporabi ime taga (npr. v0.0.1), ki ste ga pravkar potisnili
-          tags: blaze666/solski-urnik:${{ github.ref_name }}
+          tags:
+            blaze666/solski-urnik:${{ github.ref_name }}
+            blaze666/solski-urnik:latest
 
       - name: Build and push Backend
         uses: docker/build-push-action@v6
@@ -33,4 +35,6 @@ jobs:
           context: ./server
           file: ./server/Dockerfile
           push: true
-          tags: blaze666/solski-urnik-api:${{ github.ref_name }}
+          tags:
+            blaze666/solski-urnik-api:${{ github.ref_name }}
+            blaze666/solski-urnik-api:latest
