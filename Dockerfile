@@ -15,6 +15,7 @@ RUN npm run build
 
 # Stage 2: Serve with Nginx
 FROM nginx:alpine
+RUN apk add --no-cache wget
 
 # Copy custom nginx config
 COPY docker/nginx.conf /etc/nginx/conf.d/default.conf
