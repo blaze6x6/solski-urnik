@@ -24,7 +24,7 @@ jobs:
           context: .
           file: ./Dockerfile
           push: true
-          tags: blaze666/solski-urnik:latest
+          tags: blaze666/solski-urnik:v0.0.1
 
       # 2. Gradnja Backend-a
       - name: Build and push Backend
@@ -33,4 +33,4 @@ jobs:
           context: ./server
           file: ./server/Dockerfile
           push: true
-          tags: blaze666/solski-urnik-api:latest
+          tags: blaze666/solski-urnik-api:v0.0.1
