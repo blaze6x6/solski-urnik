@@ -25,7 +25,10 @@ app.use(express.json());
 
 // Request logging
 app.use((req, _res, next) => {
-  console.log(`${new Date().toISOString()} ${req.method} ${req.path}`);
+  // Če je pot /api/health, preskoči logiranje
+  if (req.path !== '/api/health') {
+    console.log(`${new Date().toISOString()} ${req.method} ${req.path}`);
+  }
   next();
 });
 
