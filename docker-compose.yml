@@ -19,27 +19,6 @@ services:
       timeout: 5s
       retries: 5
 
-  # Alternative: MariaDB (uncomment to use instead of PostgreSQL)
-  # db:
-  #   image: mariadb:11
-  #   container_name: solski_urnik_db
-  #   restart: unless-stopped
-  #   environment:
-  #     MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-rootpassword}
-  #     MYSQL_DATABASE: solski_urnik
-  #     MYSQL_USER: solski_admin
-  #     MYSQL_PASSWORD: ${DB_PASSWORD:-SolskiUrnik2025!}
-  #   ports:
-  #     - "3306:3306"
-  #   volumes:
-  #     - mariadb_data:/var/lib/mysql
-  #     - ./docker/init-mariadb.sql:/docker-entrypoint-initdb.d/init.sql
-  #   healthcheck:
-  #     test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
-  #     interval: 10s
-  #     timeout: 5s
-  #     retries: 5
-
   # Frontend (Nginx serving static build)
   frontend:
     image: blaze666/solski-urnik:latest
@@ -90,5 +69,3 @@ services:
 volumes:
   postgres_data:
     driver: local
-  # mariadb_data:
-  #   driver: local
