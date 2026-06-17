@@ -81,6 +81,14 @@ export interface AfternoonEntry {
   endTime: string;
 }
 
+export interface BusRide {
+  id: string;
+  direction: 'to_school' | 'from_school';
+  departureTime: string; // HH:MM
+  arrivalTime: string;   // HH:MM
+  label?: string;        // optional label like "1. vožnja"
+}
+
 export type Page =
   | 'login'
   | 'dashboard'
@@ -95,3 +103,4 @@ export type Page =
   | 'periods'
   | 'events'
   | 'notes';
+  | 'bus';
