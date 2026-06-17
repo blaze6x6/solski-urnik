@@ -13,14 +13,14 @@ Sistem za upravljanje šolskega urnika z Docker podporo, Express.js API backendo
 - ✅ **Tedenski urnik** — datiran koledar s tedni
 - ✅ **Šolsko leto** — določanje časovnega razpona
 - ✅ **Šolske ure** — prilagodljivi časovni razponi z odmori
-- ✅ **Časovno določeni dogodki** — časovno določljivi dogodki (npr. preverjanja, jednote) s ponavljanjem (dnevno, tedensko, mesečno)
+- ✅ **Časovno določeni dogodki** — časovno določljivi dogodki (npr. preverjanja, športni dan,...) s ponavljanjem (dnevno, tedensko, mesečno)
 - ✅ **Starši & Otroci** — povezovanje in odvezovanje
 - ✅ **Sprememba imen staršev** — urejanje imen na strani starši
 - ✅ **Starš kot admin** — vloga starša je lahko tudi admin
 - ✅ **Prikaz urnika** — ob prijavi starša se pokaže urnik otrok
 - ✅ **📝 Beležke učencev** — beležke s podatki o učencih po datumih
-- ✅ **🌅 Popoldanski urnik** — upravljanje popoldanskih aktivnosti po razredih
-- ✅ **🚌 Avtobusne vožnje** — prikaz avtobusnih voznje do in od šole
+- ✅ **🌅 Popoldanski urnik** — upravljanje popoldanskih aktivnosti po razredih/učencih
+- ✅ **🚌 Avtobusne vožnje** — prikaz avtobusnih voženj do in od šole
 
 ## 🏗️ Arhitektura
 
@@ -63,8 +63,8 @@ docker-compose ps
 
 | Storitev     | URL                       |
 |-------------|---------------------------|
-| Aplikacija  | http://localhost:8080     |
-| API         | http://localhost:8080/api |
+| Aplikacija  | http://localhost:8800     |
+| API         | http://localhost:8800/api |
 | Adminer (DB) | http://localhost:8081     |
 | PostgreSQL  | localhost:5432            |
 
