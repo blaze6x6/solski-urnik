@@ -1,4 +1,4 @@
-import { User, Student, SchoolClass, Subject, ScheduleEntry, SchoolYear, Period, DayEvent, StudentNote, AfternoonEntry } from './types';
+import { User, Student, SchoolClass, Subject, ScheduleEntry, SchoolYear, Period, DayEvent, StudentNote, AfternoonEntry, BusRide } from './types';
 
 // @ts-ignore
 const API_URL = (import.meta.env?.VITE_API_URL as string) || '/api';
@@ -328,4 +328,23 @@ export async function updateAfternoon(id: string, updates: Partial<AfternoonEntr
 
 export async function deleteAfternoon(id: string): Promise<void> {
   await request(`/afternoon/${id}`, { method: 'DELETE' });
+}
+
+export async function getBusRides(): Promise<BusRide[]> {
+  return request<BusRide[]>('/bus');
+}
+export async function createBusRide(ride: Omit<BusRide, 'id'>): Promise<BusRide> {
+  return request<BusRide>('/bus', {
+    method: 'POST',
+    body: JSON.stringify(ride),
+  });
+}
+export async function updateBusRide(id: string, updates: Partial<BusRide>): Promise<BusRide> {
+  return request<BusRide>(`/bus/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(updates),
+  });
+}
+export async function deleteBusRide(id: string): Promise<void> {
+  await request(`/bus/${id}`, { method: 'DELETE' });
 }
