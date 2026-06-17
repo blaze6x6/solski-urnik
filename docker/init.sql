@@ -108,6 +108,16 @@ CREATE TABLE IF NOT EXISTS afternoon_schedule (
 
 CREATE INDEX IF NOT EXISTS idx_afternoon_class ON afternoon_schedule(class_id);
 
+-- Bus schedule (same every day)
+CREATE TABLE IF NOT EXISTS bus_rides (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    direction VARCHAR(20) NOT NULL CHECK (direction IN ('to_school', 'from_school')),
+    departure_time TIME NOT NULL,
+    arrival_time TIME NOT NULL,
+    label VARCHAR(100),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
 -- School year configuration
 CREATE TABLE IF NOT EXISTS school_year (
     id INTEGER PRIMARY KEY DEFAULT 1 CHECK (id = 1),
