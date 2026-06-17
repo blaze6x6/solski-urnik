@@ -22,6 +22,16 @@ export async function seedAdmin(): Promise<void> {
       await execute("ALTER TABLE day_events ADD COLUMN IF NOT EXISTS recurrence VARCHAR(20) NOT NULL DEFAULT 'none'");
       await execute("UPDATE day_events SET start_time = COALESCE(start_time, '00:00'), end_time = COALESCE(end_time, '23:59'), is_all_day = false WHERE is_all_day = true OR start_time IS NULL OR end_time IS NULL");
 
+      await execute(`CREATE TABLE IF NOT EXISTS bus_rides (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        direction VARCHAR(20) NOT NULL CHECK (direction IN ('to_school', 'from_school')),
+        departure_time TIME NOT NULL,
+        arrival_time TIME NOT NULL,
+        label VARCHAR(100),
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+      )`);
+
+      
       await execute(`CREATE TABLE IF NOT EXISTS afternoon_schedule (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         class_id UUID NOT NULL REFERENCES classes(id) ON DELETE CASCADE,
