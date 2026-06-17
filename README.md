@@ -13,11 +13,14 @@ Sistem za upravljanje šolskega urnika z Docker podporo, Express.js API backendo
 - ✅ **Tedenski urnik** — datiran koledar s tedni
 - ✅ **Šolsko leto** — določanje časovnega razpona
 - ✅ **Šolske ure** — prilagodljivi časovni razponi z odmori
-- ✅ **Celodnevni dogodki** — športni dan, ekskurzije, ki nadomestijo redni urnik
+- ✅ **Časovno določeni dogodki** — časovno določljivi dogodki (npr. preverjanja, jednote) s ponavljanjem (dnevno, tedensko, mesečno)
 - ✅ **Starši & Otroci** — povezovanje in odvezovanje
 - ✅ **Sprememba imen staršev** — urejanje imen na strani starši
 - ✅ **Starš kot admin** — vloga starša je lahko tudi admin
 - ✅ **Prikaz urnika** — ob prijavi starša se pokaže urnik otrok
+- ✅ **📝 Beležke učencev** — beležke s podatki o učencih po datumih
+- ✅ **🌅 Popoldanski urnik** — upravljanje popoldanskih aktivnosti po razredih
+- ✅ **🚌 Avtobusne vožnje** — prikaz avtobusnih voznje do in od šole
 
 ## 🏗️ Arhitektura
 
@@ -91,17 +94,23 @@ npm run dev
 
 ```
 ├── docker-compose.yml       # Docker Compose konfiguracija
+├── docker-compose-dev.yml   # Docker Compose za razvoj
 ├── Dockerfile               # Frontend Docker (Nginx)
+├── index.html               # HTML vstopna točka
+├── vite.config.ts           # Vite konfiguracija
+├── tsconfig.json            # TypeScript konfiguracija
 ├── docker/
 │   ├── nginx.conf           # Nginx konfiguracija (reverse proxy)
 │   └── init.sql             # PostgreSQL inicializacija
 ├── server/                  # Backend API
 │   ├── Dockerfile           # Backend Docker
 │   ├── package.json
+│   ├── tsconfig.json
 │   └── src/
 │       ├── index.ts         # Express.js server
 │       ├── db.ts            # PostgreSQL povezava
 │       ├── auth.ts          # JWT avtentikacija
+│       ├── seed.ts          # Seed admin uporabnika
 │       └── routes/          # API endpoints
 │           ├── auth.ts
 │           ├── users.ts
@@ -110,13 +119,16 @@ npm run dev
 │           ├── subjects.ts
 │           ├── periods.ts
 │           ├── schedule.ts
-│           ├── events.ts
+│           ├── events.ts      # ✨ Časovno določeni dogodki
 │           ├── schoolYear.ts
-│           └── parents.ts
+│           ├── parents.ts
+│           ├── notes.ts       # ✨ Beležke učencev
+│           ├── afternoon.ts   # ✨ Popoldanski urnik
+│           └── bus.ts         # ✨ Avtobusne vožnje
 ├── src/                     # Frontend
 │   ├── App.tsx
 │   ├── api.ts               # API client
-│   ├── types.ts
+│   ├── types.ts             # TypeScript vmesniki
 │   ├── hooks/
 │   │   └── useAsync.ts
 │   └── components/
@@ -126,13 +138,15 @@ npm run dev
 │       ├── ScheduleView.tsx
 │       ├── ClassSchedulePage.tsx
 │       ├── PeriodsPage.tsx
-│       ├── EventsPage.tsx
+│       ├── EventsPage.tsx      # ✨ Časovno določeni dogodki
 │       ├── StudentsPage.tsx
 │       ├── SubjectsPage.tsx
 │       ├── ClassesPage.tsx
 │       ├── UsersPage.tsx
 │       ├── ParentsPage.tsx
-│       └── SchoolYearPage.tsx
+│       ├── SchoolYearPage.tsx
+│       ├── NotesPage.tsx       # ✨ Beležke učencev
+│       └── BusPage.tsx         # ✨ Avtobusne vožnje
 └── README.md
 ```
 
@@ -148,10 +162,64 @@ npm run dev
 | GET/POST/PUT/DELETE | `/api/subjects` | Upravljanje predmetov |
 | GET/POST/PUT/DELETE | `/api/periods` | Upravljanje ur |
 | GET/POST/DELETE | `/api/schedule` | Upravljanje urnika |
-| GET/POST/PUT/DELETE | `/api/events` | Upravljanje dogodkov |
+| GET/POST/PUT/DELETE | `/api/events` | Upravljanje časovno določenih dogodkov |
 | GET/PUT | `/api/school-year` | Šolsko leto |
 | POST | `/api/parents/link` | Poveži starša |
 | POST | `/api/parents/unlink` | Odveži starša |
+| GET/POST/PUT/DELETE | `/api/notes` | Upravljanje beležk učencev |
+| GET/POST/PUT/DELETE | `/api/afternoon` | Upravljanje popoldanskih ur |
+| GET/POST/PUT/DELETE | `/api/bus` | Upravljanje avtobusnih voznje |
+
+## 📋 Podatkovni modeli
+
+### DayEvent (Časovno določeni dogodki)
+```typescript
+{
+  id: string;
+  date: string;              // YYYY-MM-DD (start date for recurring)
+  title: string;
+  color: string;
+  classIds: string[];        // empty = all classes
+  startTime: string;         // HH:MM
+  endTime: string;           // HH:MM
+  recurrence: Recurrence;    // none | daily | weekly | biweekly | triweekly | monthly
+}
+```
+
+### StudentNote (Beležke učencev)
+```typescript
+{
+  id: string;
+  studentId: string;
+  date: string;              // YYYY-MM-DD
+  content: string;
+  createdAt: string;         // ISO 8601 timestamp
+}
+```
+
+### AfternoonEntry (Popoldanski urnik)
+```typescript
+{
+  id: string;
+  classId: string;
+  dayOfWeek: number;         // 0=Monday, 4=Friday
+  name: string;
+  color: string;
+  startTime: string;         // HH:MM
+  endTime: string;           // HH:MM
+}
+```
+
+### BusRide (Avtobusne vožnje)
+```typescript
+{
+  id: string;
+  direction: 'to_school' | 'from_school';
+  departureTime: string;     // HH:MM
+  arrivalTime: string;       // HH:MM
+  label?: string;            // optional label like "1. vožnja"
+}
+```
 
 ## 🏷️ Traefik Labels (za produkcijo)
 
@@ -165,3 +233,25 @@ services:
       - "traefik.http.routers.solski-urnik.tls.certresolver=letsencrypt"
       - "traefik.http.services.solski-urnik.loadbalancer.server.port=80"
 ```
+
+## 📦 Tehnologije
+
+### Frontend
+- **React 19** — moderna frontend knjižnica
+- **Vite 7** — hitra gradnja in razvoj
+- **TypeScript** — statična tipizacija
+- **Tailwind CSS 4** — utility-first CSS framework
+- **date-fns 4** — upravljanje datumov
+- **Lucide React** — ikonice
+
+### Backend
+- **Express.js 4** — minimalističan web framework
+- **PostgreSQL 15** — relacijska baza podatkov
+- **JWT** — avtentikacija brez stanja
+- **bcryptjs** — heširanje gesel
+- **CORS** — dostop med domenami
+
+### DevOps
+- **Docker** — kontejnerizacija
+- **Docker Compose** — orkestracija storitev
+- **Nginx** — reverse proxy
