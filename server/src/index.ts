@@ -15,6 +15,7 @@ import schoolYearRoutes from './routes/schoolYear.js';
 import parentsRoutes from './routes/parents.js';
 import notesRoutes from './routes/notes.js';
 import afternoonRoutes from './routes/afternoon.js';
+import busRoutes from './routes/bus.js';
 
 const app = express();
 const PORT = parseInt(process.env.PORT || '3001');
@@ -45,6 +46,7 @@ app.use('/api/school-year', schoolYearRoutes);
 app.use('/api/parents', parentsRoutes);
 app.use('/api/notes', notesRoutes);
 app.use('/api/afternoon', afternoonRoutes);
+app.use('/api/bus', busRoutes);
 
 // Health check
 app.get('/api/health', (_req, res) => {
