@@ -5,7 +5,7 @@ Sistem za upravljanje šolskega urnika z Docker podporo, Express.js API backendo
 ## ✨ Funkcionalnosti
 
 - ✅ **Prijavni obrazec** — prijava z uporabniškim imenom in geslom (JWT avtentikacija)
-- ✅ **Admin račun** — že kreiran ob inštalaciji (`admin` / `admin123`)
+- ✅ **Admin račun** — že kreiran ob inštalaciji (`admin` / `admin123`). Izbriši privzeti admin račun po kreiranju svojega/novega!!!
 - ✅ **Upravljanje uporabnikov** — kreiranje in brisanje računov (admin, starš)
 - ✅ **Upravljanje učencev** — dodajanje, urejanje, brisanje
 - ✅ **Upravljanje predmetov** — dodajanje, urejanje, brisanje z barvami
