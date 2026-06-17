@@ -74,7 +74,7 @@ export default function BusPage() {
       <div className={`px-4 py-3 ${bgColor} border-b flex items-center gap-2`}>
         <span className="text-lg">{icon}</span>
         <h3 className={`text-sm font-semibold ${textColor}`}>{title}</h3>
-        <span className={`text-xs ${textColor} opacity-70`}>({rideList.length} {rideList.length === 1 ? 'vožnja' : rideList.length < 5 ? 'vožnje' : 'voženj'})</span>
+        <span className={`text-xs ${textColor} opacity-70`}>({rideList.length} {rideList.length === 1 ? 'vožnja' : rideList.length === 2 ? 'vožnji' : rideList.length <= 4 ? 'vožnje' : 'voženj'})</span>
       </div>
       {rideList.length === 0 ? (
         <div className="p-6 text-center text-gray-400 text-sm">Ni voženj.</div>
