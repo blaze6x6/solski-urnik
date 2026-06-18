@@ -16,7 +16,8 @@ import {
   Menu,
   X,
   StickyNote,
-  Bus
+  Bus,
+  Mail
 } from 'lucide-react';
 
 interface Props {
@@ -39,11 +40,13 @@ const adminMenuItems: { page: Page; label: string; icon: React.ReactNode }[] = [
   { page: 'periods', label: 'Šolske ure', icon: <Clock className="w-5 h-5" /> },
   { page: 'school-year', label: 'Šolsko leto', icon: <CalendarDays className="w-5 h-5" /> },
   { page: 'bus', label: 'Vozni red', icon: <Bus className="w-5 h-5" /> },
+  { page: 'email-settings', label: 'Email obvestila', icon: <Mail className="w-5 h-5" /> },
 ];
 
 const parentMenuItems: { page: Page; label: string; icon: React.ReactNode }[] = [
   { page: 'dashboard', label: 'Urnik otrok', icon: <Calendar className="w-5 h-5" /> },
   { page: 'bus', label: 'Vozni red', icon: <Bus className="w-5 h-5" /> },
+  { page: 'email-settings', label: 'Email obvestila', icon: <Mail className="w-5 h-5" /> },
 ];
 
 export default function Sidebar({ user, currentPage, onNavigate, onLogout }: Props) {
