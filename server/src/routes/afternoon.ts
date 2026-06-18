@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { query, queryOne, execute } from '../db.js';
 import { authMiddleware, adminMiddleware } from '../auth.js';
-import { notifyAll } from '../mailer.js';
+import { notifyAllWithCalendar } from '../mailer.js';
 
 const router = Router();
 
@@ -66,10 +66,20 @@ router.post('/', adminMiddleware, async (req, res) => {
     );
     res.status(201).json(mapEntry(row!));
     const days = ['ponedeljek', 'torek', 'sreda', 'četrtek', 'petek'];
-    notifyAll(
-      'Nova popoldanska dejavnost',
+    // Find the next occurrence of this weekday for the .ics date
+    const today = new Date();
+    const todayDow = (today.getDay() + 6) % 7; // 0=Mon
+    let daysUntil = dayOfWeek - todayDow;
+    if (daysUntil <= 0) daysUntil += 7;
+    const nextDate = new Date(today);
+    nextDate.setDate(today.getDate() + daysUntil);
+    const dateStr = nextDate.toISOString().split('T')[0];
+    notifyAllWithCalendar(
+      'Nova popoldanska dejavnost: ' + name,
       `<p>Dodana je bila nova popoldanska dejavnost: <strong>${name}</strong></p>
-       <p>${days[dayOfWeek] || ''}, ${startTime} – ${endTime}</p>`
+       <p>${days[dayOfWeek] || ''}, ${startTime} – ${endTime} (vsak teden)</p>
+       <p><small>Odprite priloženo .ics datoteko za dodajanje v koledar.</small></p>`,
+      { title: name, date: dateStr, startTime, endTime, recurrence: 'weekly', description: name }
     ).catch(() => {});
   } catch (error) {
     console.error('Create afternoon error:', error);
