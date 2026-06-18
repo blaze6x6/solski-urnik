@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { query, queryOne, execute } from '../db.js';
 import { authMiddleware, adminMiddleware } from '../auth.js';
+import { notifyAll } from '../mailer.js';
 
 const router = Router();
 
@@ -69,6 +70,15 @@ router.post('/', adminMiddleware, async (req, res) => {
       periodId: entry!.period_id,
       room: entry!.room,
     });
+    // Notify in background
+    const cls = await queryOne<{ name: string }>('SELECT name FROM classes WHERE id = $1', [classId]);
+    const subj = await queryOne<{ name: string }>('SELECT name FROM subjects WHERE id = $1', [subjectId]);
+    const days = ['ponedeljek', 'torek', 'sreda', 'četrtek', 'petek'];
+    notifyAll(
+      'Sprememba urnika',
+      `<p>Urnik za razred <strong>${cls?.name || ''}</strong> je bil spremenjen.</p>
+       <p>Predmet <strong>${subj?.name || ''}</strong> – ${days[dayOfWeek] || ''}.</p>`
+    ).catch(() => {});
   } catch (error) {
     console.error('Set schedule entry error:', error);
     res.status(500).json({ error: 'Napaka pri shranjevanju urnika' });
