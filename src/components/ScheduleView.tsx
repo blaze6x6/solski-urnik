@@ -22,6 +22,12 @@ export default function ScheduleView({ classId, className, title }: Props) {
   const [timeEvents, setTimeEvents] = useState<DayEvent[][]>([[], [], [], [], []]);
   const [afternoonEntries, setAfternoonEntries] = useState<AfternoonEntry[]>([]);
   const [loading, setLoading] = useState(true);
+  const [now, setNow] = useState(new Date());
+  // Live clock – update every 30 seconds
+  useEffect(() => {
+    const timer = setInterval(() => setNow(new Date()), 30_000);
+    return () => clearInterval(timer);
+  }, []);
 
   const weekStart = startOfWeek(currentDate, { weekStartsOn: 1 });
   const weekDates = Array.from({ length: 5 }, (_, i) => addDays(weekStart, i));
@@ -115,6 +121,20 @@ export default function ScheduleView({ classId, className, title }: Props) {
       return eventStart < periodEnd && eventEnd > periodStart;
     });
   };
+  // Check if a given day + period is the currently active one
+  const isActivePeriod = (day: number, period: Period): boolean => {
+    if (period.isBreak) return false;
+    // day must be today
+    const todayStr = format(now, 'yyyy-MM-dd');
+    const cellDate = weekDates[day];
+    if (!cellDate) return false;
+    if (format(cellDate, 'yyyy-MM-dd') !== todayStr) return false;
+    // current time must be within period
+    const nowMins = now.getHours() * 60 + now.getMinutes();
+    const start = toMinutes(period.startTime);
+    const end = toMinutes(period.endTime);
+    return nowMins >= start && nowMins < end;
+  };
 
   return (
     <div className={className}>
@@ -202,16 +222,23 @@ export default function ScheduleView({ classId, className, title }: Props) {
                 </tr>
               </thead>
               <tbody>
-                {periods.map(period => (
+                {periods.map(period => {
+                  // Is this period currently happening right now?
+                  const nowMins = now.getHours() * 60 + now.getMinutes();
+                  const periodActive = !period.isBreak
+                    && format(now, 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd')
+                    && nowMins >= toMinutes(period.startTime) && nowMins < toMinutes(period.endTime);
+                  return (
                   <tr key={period.id} className={period.isBreak ? 'bg-amber-50/50' : 'hover:bg-gray-50'}>
-                    <td className="p-2 text-center border-b border-r border-gray-100 bg-gray-50">
+                    <td className={`p-2 text-center border-b border-r border-gray-100 ${periodActive ? 'bg-blue-100' : 'bg-gray-50'}`}>
                       <div className="flex items-center justify-center gap-1">
                         {period.isBreak && <Coffee className="w-3 h-3 text-amber-600" />}
-                        <span className={`text-xs font-bold ${period.isBreak ? 'text-amber-700' : 'text-gray-700'}`}>
+                        {periodActive && <span className="w-2 h-2 rounded-full bg-blue-600 animate-pulse" />}
+                        <span className={`text-xs font-bold ${periodActive ? 'text-blue-700' : period.isBreak ? 'text-amber-700' : 'text-gray-700'}`}>
                           {period.name}
                         </span>
                       </div>
-                      <div className="text-[10px] text-gray-400">{period.startTime} – {period.endTime}</div>
+                      <div className={`text-[10px] ${periodActive ? 'text-blue-500' : 'text-gray-400'}`}>{period.startTime} – {period.endTime}</div>
                     </td>
                     {[0, 1, 2, 3, 4].map(day => {
                       const inSchoolYear = isDayInSchoolYear[day];
@@ -239,8 +266,9 @@ export default function ScheduleView({ classId, className, title }: Props) {
                       
                       const entry = getEntry(day, period.id);
                       const subject = entry ? getSubject(entry.subjectId) : null;
+                      const active = isActivePeriod(day, period);
                       return (
-                        <td key={day} className="p-1 border-b border-r border-gray-100">
+                        <td key={day} className={`p-1 border-b border-r border-gray-100 ${active ? 'bg-blue-50/60' : ''}`}>
                           <div className="min-h-[52px] space-y-1">
                             {eventsForCell.map(event => (
                               <div
@@ -255,35 +283,43 @@ export default function ScheduleView({ classId, className, title }: Props) {
                                 <span className="text-[9px] text-gray-400">{event.startTime} - {event.endTime}</span>
                               </div>
                             ))}
-
                             {eventsForCell.length === 0 && subject ? (
                               <div
-                                className="rounded-lg p-2 text-center flex flex-col items-center justify-center cursor-pointer relative group"
+                                className={`rounded-lg p-2 text-center flex flex-col items-center justify-center cursor-pointer relative group ${
+                                  active ? 'ring-2 ring-blue-500 shadow-md shadow-blue-200' : ''
+                                }`}
                                 style={{
                                   backgroundColor: subject.color + '18',
                                   borderLeft: `3px solid ${subject.color}`,
                                 }}
                               >
-                                <span className="font-bold text-sm" style={{ color: subject.color }}>
-                                  {subject.shortName}
-                                </span>
-                                {entry?.room && (
+                                {active && (
+                                  <span className="absolute -top-1 -right-1 flex h-3 w-3">
+                                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-500 opacity-75"></span>
+                                    <span className="relative inline-flex rounded-full h-3 w-3 bg-blue-600"></span>
+                                  </span>
+                                  )}
+                                  <span className="font-bold text-sm" style={{ color: subject.color }}>
+                                    {subject.shortName}
+                                  </span>
+                                  {entry?.room && (
                                   <span className="text-[10px] text-gray-400 mt-0.5">{entry.room}</span>
-                                )}
-                                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-1.5 bg-gray-900 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-10">
-                                  {subject.name}
-                                  <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900"></div>
+                                  )}
+                                  <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-1.5 bg-gray-900 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-10">
+                                    {subject.name}
+                                    <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900"></div>
+                                  </div>
                                 </div>
-                              </div>
-                            ) : eventsForCell.length === 0 ? (
-                              <div className="min-h-[52px]" />
-                            ) : null}
-                          </div>
-                        </td>
-                      );
-                    })}
-                  </tr>
-                ))}
+                              ) : eventsForCell.length === 0 ? (
+                                <div className="min-h-[52px]" />
+                              ) : null}
+                            </div>
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
