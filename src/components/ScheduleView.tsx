@@ -202,7 +202,7 @@ export default function ScheduleView({ classId, className, title }: Props) {
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full border-collapse min-w-[700px]">
+            <table className="w-full table-fixed border-collapse min-w-[700px]">
               <thead>
                 <tr className="bg-blue-50">
                   <th className="p-3 text-left text-sm font-semibold text-gray-600 w-28 border-b border-r border-blue-100">
@@ -284,23 +284,23 @@ export default function ScheduleView({ classId, className, title }: Props) {
                       const active = isActivePeriod(day, period);
                       return (
                         <td key={day} className={`p-1 border-b border-r border-gray-100 ${active ? 'bg-blue-50/60' : ''}`}>
-                          <div className="min-h-[52px] space-y-1">
+                          <div className="min-h-[52px] space-y-0.5">
                             {eventsForCell.map(event => (
                               <div
                                 key={event.id}
-                                className="rounded-lg p-1.5 text-center flex flex-col items-center justify-center"
+                                className="w-full rounded-lg px-0.5 py-1.5 text-center flex flex-col justify-center leading-tight"
                                 style={{ backgroundColor: event.color + '15', borderLeft: `3px solid ${event.color}` }}
                               >
-                                <Star className="w-3.5 h-3.5 mb-0.5" style={{ color: event.color }} />
-                                <span className="text-[10px] font-semibold" style={{ color: event.color }}>
+                                <Star className="w-3.5 h-3.5 mb-0.5 self-center" style={{ color: event.color }} />
+                                <span className="w-full text-[10px] font-semibold break-words whitespace-normal px-0.5" style={{ color: event.color }}>
                                   {event.title}
                                 </span>
-                                <span className="text-[9px] text-gray-400">{event.startTime} - {event.endTime}</span>
+                                <span className="w-full text-[9px] text-gray-400 leading-none">{event.startTime} - {event.endTime}</span>
                               </div>
                             ))}
                             {eventsForCell.length === 0 && subject ? (
                               <div
-                                className={`rounded-lg p-2 text-center flex flex-col items-center justify-center cursor-pointer relative group ${
+                                className={`w-full min-h-[52px] rounded-lg px-0.5 py-1.5 text-center flex flex-col items-center justify-center cursor-pointer relative group leading-tight ${
                                   active ? 'ring-2 ring-blue-500 shadow-md shadow-blue-200' : ''
                                 }`}
                                 style={{
@@ -313,12 +313,15 @@ export default function ScheduleView({ classId, className, title }: Props) {
                                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-500 opacity-75"></span>
                                     <span className="relative inline-flex rounded-full h-3 w-3 bg-blue-600"></span>
                                   </span>
-                                  )}
-                                  <span className={`font-bold ${showFullName ? 'text-xs' : 'text-sm'}`} style={{ color: subject.color }}>
+                                )}
+                                <span
+                                  className={`w-full font-bold break-words whitespace-normal px-0.5 ${showFullName ? 'text-[13px] leading-tight' : 'text-sm leading-tight'}`}
+                                  style={{ color: subject.color }}
+                                >
                                   {showFullName ? subject.name : subject.shortName}
                                 </span>
                                 {entry?.room && (
-                                  <span className="text-[10px] text-gray-400 mt-0.5">{entry.room}</span>
+                                  <span className="w-full text-[10px] text-gray-400 mt-0.5 leading-none">{entry.room}</span>
                                 )}
                                 <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-1.5 bg-gray-900 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-10">
                                   {showFullName ? subject.shortName : subject.name}
@@ -350,7 +353,7 @@ export default function ScheduleView({ classId, className, title }: Props) {
             </h3>
           </div>
           <div className="overflow-x-auto">
-            <table className="w-full border-collapse min-w-[700px]">
+            <table className="w-full table-fixed border-collapse min-w-[700px]">
               <thead>
                 <tr className="bg-emerald-50/50">
                   <th className="p-3 text-left text-sm font-semibold text-gray-600 w-28 border-b border-r border-emerald-100">
