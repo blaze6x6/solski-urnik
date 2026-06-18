@@ -5,6 +5,18 @@ export interface User {
   fullName: string;
   role: 'admin' | 'parent';
   childrenIds: string[];
+  email?: string;
+  emailNotifications: boolean;
+}
+
+export interface SmtpSettings {
+  host: string;
+  port: number;
+  secure: boolean;
+  user: string;
+  password: string;
+  fromName: string;
+  fromEmail: string;
 }
 
 export interface Student {
