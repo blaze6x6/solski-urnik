@@ -16,6 +16,7 @@ import parentsRoutes from './routes/parents.js';
 import notesRoutes from './routes/notes.js';
 import afternoonRoutes from './routes/afternoon.js';
 import busRoutes from './routes/bus.js';
+import emailRoutes from './routes/email.js';
 
 const app = express();
 const PORT = parseInt(process.env.PORT || '3001');
@@ -47,6 +48,7 @@ app.use('/api/parents', parentsRoutes);
 app.use('/api/notes', notesRoutes);
 app.use('/api/afternoon', afternoonRoutes);
 app.use('/api/bus', busRoutes);
+app.use('/api/email', emailRoutes);
 
 // Health check
 app.get('/api/health', (_req, res) => {
