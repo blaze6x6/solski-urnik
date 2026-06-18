@@ -16,7 +16,9 @@ router.get('/', async (req, res) => {
       username: string;
       full_name: string;
       role: 'admin' | 'parent';
-    }>('SELECT id, username, full_name, role FROM users ORDER BY full_name');
+      email: string | null;
+      email_notifications: boolean;
+    }>('SELECT id, username, full_name, role, email, email_notifications FROM users ORDER BY full_name');
 
     // Get children for each user
     const result = await Promise.all(
@@ -31,6 +33,8 @@ router.get('/', async (req, res) => {
           fullName: user.full_name,
           role: user.role,
           childrenIds: children.map(c => c.student_id),
+          email: user.email || '',
+          emailNotifications: user.email_notifications,
         };
       })
     );
