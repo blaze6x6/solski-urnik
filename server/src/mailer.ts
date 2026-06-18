@@ -143,14 +143,13 @@ export async function notifyAll(subject: string, html: string): Promise<void> {
           from: `"${smtp.from_name}" <${smtp.from_email}>`,
           to: user.email,
           subject,
-          html,
-          attachments: [
+          html: html, // Normalna HTML vsebina
+          alternatives: [
             {
-              filename: 'event.ics',
               contentType: 'text/calendar; charset=utf-8; method=PUBLISH',
               content: icsContent,
-            },
-          ],
+            }
+          ]
         });
         console.log(`📧 Notification sent to ${user.email}`);
       } catch (err) {
