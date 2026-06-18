@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { query, queryOne, execute } from '../db.js';
 import { authMiddleware, adminMiddleware } from '../auth.js';
+import { notifyAll } from '../mailer.js';
 
 const router = Router();
 
@@ -125,6 +126,11 @@ router.post('/', adminMiddleware, async (req, res) => {
     );
 
     res.status(201).json(mapEvent(event!));
+    notifyAll(
+      'Nov dogodek: ' + title,
+      `<p>Dodan je bil nov dogodek: <strong>${title}</strong></p>
+       <p>Datum: ${date}, ${startTime} – ${endTime}</p>`
+    ).catch(() => {});
   } catch (error) {
     console.error('Create event error:', error);
     res.status(500).json({ error: 'Napaka pri ustvarjanju dogodka' });
