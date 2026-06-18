@@ -1,4 +1,5 @@
 import nodemailer from 'nodemailer';
+import ical, { ICalCalendarMethod, ICalEventRepeatingFreq } from 'ical-generator';
 import { queryOne, query } from './db.js';
 interface SmtpRow {
   host: string;
@@ -29,7 +30,7 @@ async function createTransport() {
     } : undefined,
   });
 }
-// Send to a single email
+// Send a simple email
 export async function sendEmail(to: string, subject: string, html: string): Promise<boolean> {
   try {
     const transport = await createTransport();
@@ -52,7 +53,80 @@ export async function sendEmail(to: string, subject: string, html: string): Prom
     return false;
   }
 }
-// Send notification to all users who have email_notifications = true and an email set
+// Send email with .ics calendar attachment
+export async function sendEmailWithCalendar(
+  to: string,
+  subject: string,
+  html: string,
+  calendarEvent: {
+    title: string;
+    date: string;       // YYYY-MM-DD
+    startTime: string;  // HH:MM
+    endTime: string;    // HH:MM
+    recurrence?: string;
+    description?: string;
+  }
+): Promise<boolean> {
+  try {
+    const transport = await createTransport();
+    if (!transport) return false;
+    const smtp = await getSmtpSettings();
+    if (!smtp) return false;
+    // Build .ics
+    const cal = ical({ name: 'Šolski Urnik', method: ICalCalendarMethod.PUBLISH });
+    const [startH, startM] = calendarEvent.startTime.split(':').map(Number);
+    const [endH, endM] = calendarEvent.endTime.split(':').map(Number);
+    const startDate = new Date(calendarEvent.date + 'T00:00:00');
+    startDate.setHours(startH, startM, 0, 0);
+    const endDate = new Date(calendarEvent.date + 'T00:00:00');
+    endDate.setHours(endH, endM, 0, 0);
+    const event = cal.createEvent({
+      start: startDate,
+      end: endDate,
+      summary: calendarEvent.title,
+      description: calendarEvent.description || calendarEvent.title,
+    });
+    // Add recurrence rule
+    if (calendarEvent.recurrence && calendarEvent.recurrence !== 'none') {
+      const freqMap: Record<string, { freq: ICalEventRepeatingFreq; interval: number }> = {
+        daily:      { freq: ICalEventRepeatingFreq.DAILY, interval: 1 },
+        weekly:     { freq: ICalEventRepeatingFreq.WEEKLY, interval: 1 },
+        biweekly:   { freq: ICalEventRepeatingFreq.WEEKLY, interval: 2 },
+        triweekly:  { freq: ICalEventRepeatingFreq.WEEKLY, interval: 3 },
+        monthly:    { freq: ICalEventRepeatingFreq.MONTHLY, interval: 1 },
+      };
+      const rule = freqMap[calendarEvent.recurrence];
+      if (rule) {
+        // Get school year end for UNTIL
+        const schoolYear = await queryOne<{ end_date: Date }>('SELECT end_date FROM school_year WHERE id = 1');
+        const until = schoolYear ? schoolYear.end_date : new Date(startDate.getFullYear() + 1, 5, 30);
+        event.repeating({
+          freq: rule.freq,
+          interval: rule.interval,
+          until,
+        });
+      }
+    }
+    const icsContent = cal.toString();
+    await transport.sendMail({
+      from: `"${smtp.from_name}" <${smtp.from_email}>`,
+      to,
+      subject,
+      html,
+      icalEvent: {
+        filename: 'event.ics',
+        method: 'PUBLISH',
+        content: icsContent,
+      },
+    });
+    console.log(`📧 Email with .ics sent to ${to}: ${subject}`);
+    return true;
+  } catch (error) {
+    console.error('📧 Email with calendar error:', error);
+    return false;
+  }
+}
+// Notify all users with notifications enabled (simple email)
 export async function notifyAll(subject: string, html: string): Promise<void> {
   try {
     const users = await query<{ email: string }>(
@@ -78,6 +152,31 @@ export async function notifyAll(subject: string, html: string): Promise<void> {
     }
   } catch (error) {
     console.error('📧 notifyAll error:', error);
+  }
+}
+// Notify all with calendar attachment
+export async function notifyAllWithCalendar(
+  subject: string,
+  html: string,
+  calendarEvent: {
+    title: string;
+    date: string;
+    startTime: string;
+    endTime: string;
+    recurrence?: string;
+    description?: string;
+  }
+): Promise<void> {
+  try {
+    const users = await query<{ email: string }>(
+      "SELECT email FROM users WHERE email IS NOT NULL AND email != '' AND email_notifications = true"
+    );
+    if (users.length === 0) return;
+    for (const user of users) {
+      sendEmailWithCalendar(user.email, subject, html, calendarEvent).catch(() => {});
+    }
+  } catch (error) {
+    console.error('📧 notifyAllWithCalendar error:', error);
   }
 }
 // Send test email
