@@ -144,6 +144,13 @@ export async function notifyAll(subject: string, html: string): Promise<void> {
           to: user.email,
           subject,
           html,
+          attachments: [
+            {
+              filename: 'event.ics',
+              contentType: 'text/calendar; charset=utf-8; method=PUBLISH',
+              content: icsContent,
+            },
+          ],
         });
         console.log(`📧 Notification sent to ${user.email}`);
       } catch (err) {
