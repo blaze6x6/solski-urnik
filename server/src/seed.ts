@@ -22,6 +22,23 @@ export async function seedAdmin(): Promise<void> {
       await execute("ALTER TABLE day_events ADD COLUMN IF NOT EXISTS recurrence VARCHAR(20) NOT NULL DEFAULT 'none'");
       await execute("UPDATE day_events SET start_time = COALESCE(start_time, '00:00'), end_time = COALESCE(end_time, '23:59'), is_all_day = false WHERE is_all_day = true OR start_time IS NULL OR end_time IS NULL");
 
+      // User email columns
+      await execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS email VARCHAR(255)");
+      await execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS email_notifications BOOLEAN NOT NULL DEFAULT false");
+      // SMTP settings table
+      await execute(`CREATE TABLE IF NOT EXISTS smtp_settings (
+        id INTEGER PRIMARY KEY DEFAULT 1 CHECK (id = 1),
+        host VARCHAR(255) NOT NULL DEFAULT '',
+        port INTEGER NOT NULL DEFAULT 587,
+        secure BOOLEAN NOT NULL DEFAULT false,
+        smtp_user VARCHAR(255) NOT NULL DEFAULT '',
+        smtp_password VARCHAR(255) NOT NULL DEFAULT '',
+        from_name VARCHAR(255) NOT NULL DEFAULT 'Šolski Urnik',
+        from_email VARCHAR(255) NOT NULL DEFAULT '',
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+      )`);
+      await execute("INSERT INTO smtp_settings (id, host) VALUES (1, '') ON CONFLICT (id) DO NOTHING");
+      
       await execute(`CREATE TABLE IF NOT EXISTS bus_rides (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         direction VARCHAR(20) NOT NULL CHECK (direction IN ('to_school', 'from_school')),
