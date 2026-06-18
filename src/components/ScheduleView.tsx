@@ -3,7 +3,7 @@ import * as api from '../api';
 import { ScheduleEntry, Period, Subject, DayEvent, AfternoonEntry } from '../types';
 import { format, startOfWeek, addDays, isWithinInterval, parseISO, addWeeks, subWeeks } from 'date-fns';
 import { sl } from 'date-fns/locale';
-import { ChevronLeft, ChevronRight, Calendar, Star, Coffee, Umbrella } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Calendar, Star, Coffee, Umbrella, Type } from 'lucide-react';
 
 const DAYS_SHORT = ['Pon', 'Tor', 'Sre', 'Čet', 'Pet'];
 
@@ -23,6 +23,7 @@ export default function ScheduleView({ classId, className, title }: Props) {
   const [afternoonEntries, setAfternoonEntries] = useState<AfternoonEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [now, setNow] = useState(new Date());
+  const [showFullName, setShowFullName] = useState(() => localStorage.getItem('schedule_showFullName') === 'true');
   // Live clock – update every 30 seconds
   useEffect(() => {
     const timer = setInterval(() => setNow(new Date()), 30_000);
@@ -165,6 +166,20 @@ export default function ScheduleView({ classId, className, title }: Props) {
 
         <div className="flex items-center gap-2">
           <button
+            onClick={() => {
+              const next = !showFullName;
+              setShowFullName(next);
+              localStorage.setItem('schedule_showFullName', String(next));
+            }}
+            className={`px-3 py-1.5 text-sm rounded-lg transition font-medium flex items-center gap-1.5 ${
+              showFullName ? 'bg-indigo-100 text-indigo-700 hover:bg-indigo-200' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+            }`}
+            title={showFullName ? 'Prikaži kratice' : 'Prikaži polna imena'}
+          >
+            <Type className="w-4 h-4" />
+            {showFullName ? 'Abc' : 'MAT'}
+          </button>
+          <button
             onClick={() => setCurrentDate(new Date())}
             className="px-3 py-1.5 text-sm bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition font-medium"
           >
@@ -299,16 +314,16 @@ export default function ScheduleView({ classId, className, title }: Props) {
                                     <span className="relative inline-flex rounded-full h-3 w-3 bg-blue-600"></span>
                                   </span>
                                   )}
-                                  <span className="font-bold text-sm" style={{ color: subject.color }}>
-                                    {subject.shortName}
-                                  </span>
-                                  {entry?.room && (
+                                  <span className={`font-bold ${showFullName ? 'text-xs' : 'text-sm'}`} style={{ color: subject.color }}>
+                                  {showFullName ? subject.name : subject.shortName}
+                                </span>
+                                {entry?.room && (
                                   <span className="text-[10px] text-gray-400 mt-0.5">{entry.room}</span>
-                                  )}
-                                  <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-1.5 bg-gray-900 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-10">
-                                    {subject.name}
-                                    <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900"></div>
-                                  </div>
+                                )}
+                                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-1.5 bg-gray-900 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-10">
+                                  {showFullName ? subject.shortName : subject.name}
+                                  <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900"></div>
+                                </div>
                                 </div>
                               ) : eventsForCell.length === 0 ? (
                                 <div className="min-h-[52px]" />
