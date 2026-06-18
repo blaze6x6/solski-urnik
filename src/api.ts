@@ -1,4 +1,4 @@
-import { User, Student, SchoolClass, Subject, ScheduleEntry, SchoolYear, Period, DayEvent, StudentNote, AfternoonEntry, BusRide } from './types';
+import { User, Student, SchoolClass, Subject, ScheduleEntry, SchoolYear, Period, DayEvent, StudentNote, AfternoonEntry, BusRide, SmtpSettings } from './types';
 
 // @ts-ignore
 const API_URL = (import.meta.env?.VITE_API_URL as string) || '/api';
@@ -347,4 +347,29 @@ export async function updateBusRide(id: string, updates: Partial<BusRide>): Prom
 }
 export async function deleteBusRide(id: string): Promise<void> {
   await request(`/bus/${id}`, { method: 'DELETE' });
+}
+// Email / SMTP
+export async function getSmtpSettings(): Promise<SmtpSettings> {
+  return request<SmtpSettings>('/email/smtp');
+}
+export async function updateSmtpSettings(settings: SmtpSettings): Promise<void> {
+  await request('/email/smtp', {
+    method: 'PUT',
+    body: JSON.stringify(settings),
+  });
+}
+export async function sendTestEmail(email: string): Promise<void> {
+  await request('/email/test', {
+    method: 'POST',
+    body: JSON.stringify({ email }),
+  });
+}
+export async function getEmailPreferences(): Promise<{ email: string; emailNotifications: boolean }> {
+  return request('/email/preferences');
+}
+export async function updateEmailPreferences(prefs: { email: string; emailNotifications: boolean }): Promise<void> {
+  await request('/email/preferences', {
+    method: 'PUT',
+    body: JSON.stringify(prefs),
+  });
 }
