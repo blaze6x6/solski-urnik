@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { query, queryOne, execute } from '../db.js';
 import { authMiddleware, adminMiddleware, AuthRequest } from '../auth.js';
+import { sendEmail } from '../mailer.js';
 
 const router = Router();
 
@@ -73,6 +74,29 @@ router.post('/', adminMiddleware, async (req, res) => {
       content: note!.content,
       createdAt: note!.created_at.toISOString(),
     });
+    // Notify linked parents
+    (async () => {
+      try {
+        const student = await queryOne<{ first_name: string; last_name: string }>(
+          'SELECT first_name, last_name FROM students WHERE id = $1', [studentId]
+        );
+        const parents = await query<{ email: string }>(
+          `SELECT u.email FROM users u
+           JOIN parent_children pc ON pc.parent_id = u.id
+           WHERE pc.student_id = $1 AND u.email IS NOT NULL AND u.email != '' AND u.email_notifications = true`,
+          [studentId]
+        );
+        for (const p of parents) {
+          sendEmail(
+            p.email,
+            `Nova beležka za ${student?.first_name || ''} ${student?.last_name || ''}`,
+            `<p>Nova beležka za <strong>${student?.first_name || ''} ${student?.last_name || ''}</strong>:</p>
+             <p>${content}</p>
+             <p><small>Datum: ${date}</small></p>`
+          ).catch(() => {});
+        }
+      } catch {}
+    })();
   } catch (error) {
     console.error('Create note error:', error);
     res.status(500).json({ error: 'Napaka pri ustvarjanju beležke' });
