@@ -6,7 +6,7 @@ export interface User {
   role: 'admin' | 'parent';
   childrenIds: string[];
   email?: string;
-  emailNotifications: boolean;
+  emailNotifications?: boolean;
 }
 
 export interface SmtpSettings {
@@ -116,3 +116,4 @@ export type Page =
   | 'events'
   | 'notes';
   | 'bus';
+  | 'email-settings';
