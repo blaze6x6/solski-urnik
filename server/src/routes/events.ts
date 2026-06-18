@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { query, queryOne, execute } from '../db.js';
 import { authMiddleware, adminMiddleware } from '../auth.js';
-import { notifyAll } from '../mailer.js';
+import { notifyAllWithCalendar } from '../mailer.js';
 
 const router = Router();
 
@@ -126,10 +126,16 @@ router.post('/', adminMiddleware, async (req, res) => {
     );
 
     res.status(201).json(mapEvent(event!));
-    notifyAll(
+    const recLabels: Record<string, string> = {
+      none: '', daily: ' (vsak dan)', weekly: ' (vsak teden)',
+      biweekly: ' (vsak drugi teden)', triweekly: ' (vsak tretji teden)', monthly: ' (vsak mesec)',
+    };
+    notifyAllWithCalendar(
       'Nov dogodek: ' + title,
       `<p>Dodan je bil nov dogodek: <strong>${title}</strong></p>
-       <p>Datum: ${date}, ${startTime} – ${endTime}</p>`
+       <p>Datum: ${date}, ${startTime} – ${endTime}${recLabels[recurrence || 'none'] || ''}</p>
+       <p><small>Odprite priloženo .ics datoteko za dodajanje v Google Koledar ali drug koledar.</small></p>`,
+      { title, date, startTime, endTime, recurrence: recurrence || 'none', description: title }
     ).catch(() => {});
   } catch (error) {
     console.error('Create event error:', error);
