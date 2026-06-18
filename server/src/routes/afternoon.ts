@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { query, queryOne, execute } from '../db.js';
 import { authMiddleware, adminMiddleware } from '../auth.js';
+import { notifyAll } from '../mailer.js';
 
 const router = Router();
 
@@ -64,6 +65,12 @@ router.post('/', adminMiddleware, async (req, res) => {
       [classId, dayOfWeek, name, color || '#10B981', startTime, endTime]
     );
     res.status(201).json(mapEntry(row!));
+    const days = ['ponedeljek', 'torek', 'sreda', 'četrtek', 'petek'];
+    notifyAll(
+      'Nova popoldanska dejavnost',
+      `<p>Dodana je bila nova popoldanska dejavnost: <strong>${name}</strong></p>
+       <p>${days[dayOfWeek] || ''}, ${startTime} – ${endTime}</p>`
+    ).catch(() => {});
   } catch (error) {
     console.error('Create afternoon error:', error);
     res.status(500).json({ error: 'Napaka pri ustvarjanju' });
