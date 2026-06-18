@@ -11,6 +11,8 @@ CREATE TABLE IF NOT EXISTS users (
     password_hash VARCHAR(255) NOT NULL,
     full_name VARCHAR(200) NOT NULL,
     role VARCHAR(20) NOT NULL DEFAULT 'parent' CHECK (role IN ('admin', 'parent')),
+    email VARCHAR(255),
+    email_notifications BOOLEAN NOT NULL DEFAULT false,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
@@ -117,6 +119,20 @@ CREATE TABLE IF NOT EXISTS bus_rides (
     label VARCHAR(100),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
+
+-- SMTP settings (singleton)
+CREATE TABLE IF NOT EXISTS smtp_settings (
+    id INTEGER PRIMARY KEY DEFAULT 1 CHECK (id = 1),
+    host VARCHAR(255) NOT NULL DEFAULT '',
+    port INTEGER NOT NULL DEFAULT 587,
+    secure BOOLEAN NOT NULL DEFAULT false,
+    smtp_user VARCHAR(255) NOT NULL DEFAULT '',
+    smtp_password VARCHAR(255) NOT NULL DEFAULT '',
+    from_name VARCHAR(255) NOT NULL DEFAULT 'Šolski Urnik',
+    from_email VARCHAR(255) NOT NULL DEFAULT '',
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+INSERT INTO smtp_settings (id, host) VALUES (1, '') ON CONFLICT (id) DO NOTHING;
 
 -- School year configuration
 CREATE TABLE IF NOT EXISTS school_year (
