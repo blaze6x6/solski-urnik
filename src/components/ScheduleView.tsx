@@ -1,9 +1,9 @@
-import { useMemo, useState, useEffect } from 'react';
+import { useMemo, useState, useEffect, useRef, useCallback } from 'react';
 import * as api from '../api';
 import { ScheduleEntry, Period, Subject, DayEvent, AfternoonEntry } from '../types';
 import { format, startOfWeek, addDays, isWithinInterval, parseISO, addWeeks, subWeeks } from 'date-fns';
 import { sl } from 'date-fns/locale';
-import { ChevronLeft, ChevronRight, Calendar, Star, Coffee, Umbrella, Type } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Calendar, Star, Coffee, Umbrella, Type, FileDown } from 'lucide-react';
 import { toPng } from 'html-to-image';
 import { jsPDF } from 'jspdf';
 
@@ -28,8 +28,10 @@ export default function ScheduleView({ classId, className, title }: Props) {
   const [showFullName, setShowFullName] = useState(() => localStorage.getItem('schedule_showFullName') === 'true');
   const [exporting, setExporting] = useState(false);
   const scheduleRef = useRef<HTMLDivElement>(null);
+
   const weekStart = startOfWeek(currentDate, { weekStartsOn: 1 });
   const weekDates = Array.from({ length: 5 }, (_, i) => addDays(weekStart, i));
+
   const exportPdf = useCallback(async () => {
     const el = scheduleRef.current;
     if (!el || exporting) return;
@@ -39,10 +41,8 @@ export default function ScheduleView({ classId, className, title }: Props) {
         pixelRatio: 2,
         backgroundColor: '#f3f4f6',
       });
-      // Get dimensions from rendered element
       const imgW = el.offsetWidth * 2;
       const imgH = el.offsetHeight * 2;
-      // A4 landscape fits schedules better
       const pdf = new jsPDF({
         orientation: imgW > imgH ? 'landscape' : 'portrait',
         unit: 'mm',
@@ -73,7 +73,7 @@ export default function ScheduleView({ classId, className, title }: Props) {
     return () => clearInterval(timer);
   }, []);
 
-// Funkcija za pravilno sklanjanje števnikov
+  // Funkcija za pravilno sklanjanje števnikov
   const getEventLabel = (count: number) => {
     if (count === 1) return 'dogodek';
     if (count === 2) return 'dogodka';
@@ -106,15 +106,16 @@ export default function ScheduleView({ classId, className, title }: Props) {
   useEffect(() => {
     setLoading(true);
     Promise.all(
-      weekDates.map(date => 
+      weekDates.map(date =>
         api.getTimeEventsForClassAndDate(classId, format(date, 'yyyy-MM-dd'))
       )
     ).then(events => {
       setTimeEvents(events);
       setLoading(false);
     });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [classId, weekStart.toISOString()]);
-  
+
   // Check if the entire week is within school year
   const isWeekInSchoolYear = useMemo(() => {
     if (!schoolYear.startDate || !schoolYear.endDate) return true;
@@ -162,15 +163,14 @@ export default function ScheduleView({ classId, className, title }: Props) {
       return eventStart < periodEnd && eventEnd > periodStart;
     });
   };
+
   // Check if a given day + period is the currently active one
   const isActivePeriod = (day: number, period: Period): boolean => {
     if (period.isBreak) return false;
-    // day must be today
     const todayStr = format(now, 'yyyy-MM-dd');
     const cellDate = weekDates[day];
     if (!cellDate) return false;
     if (format(cellDate, 'yyyy-MM-dd') !== todayStr) return false;
-    // current time must be within period
     const nowMins = now.getHours() * 60 + now.getMinutes();
     const start = toMinutes(period.startTime);
     const end = toMinutes(period.endTime);
@@ -184,7 +184,7 @@ export default function ScheduleView({ classId, className, title }: Props) {
       )}
 
       {/* Week navigation */}
-      <div className="flex items-center justify-between mb-4 bg-white rounded-xl p-4 shadow-sm">
+      <div className="flex flex-col sm:flex-row items-center justify-between mb-4 bg-white rounded-xl p-4 shadow-sm gap-3">
         <button
           onClick={() => setCurrentDate(subWeeks(currentDate, 1))}
           className="p-2 hover:bg-gray-100 rounded-lg transition"
@@ -246,259 +246,258 @@ export default function ScheduleView({ classId, className, title }: Props) {
           </button>
         </div>
       </div>
-      
+
       {/* Printable area */}
       <div ref={scheduleRef}>
-        
-      {/* Schedule Grid */}
-      <div className="bg-white rounded-xl shadow-sm overflow-hidden">
-        {loading ? (
-          <div className="flex items-center justify-center py-20">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full table-fixed border-collapse min-w-[700px]">
-              <thead>
-                <tr className="bg-blue-50">
-                  <th className="p-3 text-left text-sm font-semibold text-gray-600 w-28 border-b border-r border-blue-100">
-                    Ura
-                  </th>
-                  {weekDates.map((date, i) => {
-                    const isToday = format(date, 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd');
-                    const inSchoolYear = isDayInSchoolYear[i];
-                    const events = timeEvents[i] || [];
-                    return (
-                      <th
-                        key={i}
-                        className={`p-3 text-center text-sm font-semibold border-b border-r border-blue-100 ${
-                          isToday ? 'bg-blue-600 text-white' : !inSchoolYear ? 'bg-gray-100 text-gray-400' : 'text-gray-700'
-                        }`}
-                      >
-                        <div>{DAYS_SHORT[i]}</div>
-                        <div className={`text-xs ${isToday ? 'text-blue-100' : 'text-gray-400'}`}>
-                          {format(date, 'd. M.')}
-                        </div>
-                        {!inSchoolYear && (
-                          <div className="mt-1 text-[10px] text-gray-400">Počitnice</div>
-                        )}
-                        {events.length > 0 && inSchoolYear && (
-                          <div className={`mt-1 text-[10px] font-medium ${isToday ? 'text-blue-100' : 'text-blue-600'}`}>
-                            {events.length} {getEventLabel(events.length)}
-                          </div>
-                        )}
-                      </th>
-                    );
-                  })}
-                </tr>
-              </thead>
-              <tbody>
-                {periods.map(period => {
-                  // Is this period currently happening right now?
-                  const nowMins = now.getHours() * 60 + now.getMinutes();
-                  const periodActive = !period.isBreak
-                    && format(now, 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd')
-                    && nowMins >= toMinutes(period.startTime) && nowMins < toMinutes(period.endTime);
-                  return (
-                  <tr key={period.id} className={period.isBreak ? 'bg-amber-50/50' : 'hover:bg-gray-50'}>
-                    <td className={`p-2 text-center border-b border-r border-gray-100 ${periodActive ? 'bg-blue-100' : 'bg-gray-50'}`}>
-                      <div className="flex items-center justify-center gap-1">
-                        {period.isBreak && <Coffee className="w-3 h-3 text-amber-600" />}
-                        {periodActive && <span className="w-2 h-2 rounded-full bg-blue-600 animate-pulse" />}
-                        <span className={`text-xs font-bold ${periodActive ? 'text-blue-700' : period.isBreak ? 'text-amber-700' : 'text-gray-700'}`}>
-                          {period.name}
-                        </span>
-                      </div>
-                      <div className={`text-[10px] ${periodActive ? 'text-blue-500' : 'text-gray-400'}`}>{period.startTime} – {period.endTime}</div>
-                    </td>
-                    {[0, 1, 2, 3, 4].map(day => {
-                      const inSchoolYear = isDayInSchoolYear[day];
-                      const eventsForCell = getEventsForPeriod(day, period);
-                      
-                      // During holidays, show empty
-                      if (!inSchoolYear) {
-                        return (
-                          <td key={day} className="p-1 border-b border-r border-gray-100 bg-gray-50">
-                            <div className="min-h-[52px]" />
-                          </td>
-                        );
-                      }
 
-                      // If it's a break period, show break indicator
-                      if (period.isBreak) {
-                        return (
-                          <td key={day} className="p-1 border-b border-r border-gray-100">
-                            <div className="min-h-[40px] flex items-center justify-center">
-                              <Coffee className="w-4 h-4 text-amber-300" />
-                            </div>
-                          </td>
-                        );
-                      }
-                      
-                      const entry = getEntry(day, period.id);
-                      const subject = entry ? getSubject(entry.subjectId) : null;
-                      const active = isActivePeriod(day, period);
+        {/* Schedule Grid */}
+        <div className="bg-white rounded-xl shadow-sm overflow-hidden">
+          {loading ? (
+            <div className="flex items-center justify-center py-20">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full table-fixed border-collapse min-w-[700px]">
+                <thead>
+                  <tr className="bg-blue-50">
+                    <th className="p-3 text-left text-sm font-semibold text-gray-600 w-28 border-b border-r border-blue-100">
+                      Ura
+                    </th>
+                    {weekDates.map((date, i) => {
+                      const isToday = format(date, 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd');
+                      const inSchoolYear = isDayInSchoolYear[i];
+                      const events = timeEvents[i] || [];
                       return (
-                        <td key={day} className={`p-1 border-b border-r border-gray-100 ${active ? 'bg-blue-50/60' : ''}`}>
-                          <div className="min-h-[52px] space-y-0.5">
-                            {eventsForCell.map(event => (
-                              <div
-                                key={event.id}
-                                className="w-full rounded-lg px-0.5 py-1.5 text-center flex flex-col justify-center leading-tight"
-                                style={{ backgroundColor: event.color + '15', borderLeft: `3px solid ${event.color}` }}
-                              >
-                                <Star className="w-3.5 h-3.5 mb-0.5 self-center" style={{ color: event.color }} />
-                                <span className="w-full text-[10px] font-semibold break-words whitespace-normal px-0.5" style={{ color: event.color }}>
-                                  {event.title}
-                                </span>
-                                <span className="w-full text-[9px] text-gray-400 leading-none">{event.startTime} - {event.endTime}</span>
-                              </div>
-                            ))}
-                            {eventsForCell.length === 0 && subject ? (
-                              <div
-                                className={`w-full min-h-[52px] rounded-lg px-0.5 py-1.5 text-center flex flex-col items-center justify-center cursor-pointer relative group leading-tight ${
-                                  active ? 'ring-2 ring-blue-500 shadow-md shadow-blue-200' : ''
-                                }`}
-                                style={{
-                                  backgroundColor: subject.color + '18',
-                                  borderLeft: `3px solid ${subject.color}`,
-                                }}
-                              >
-                                {active && (
-                                  <span className="absolute -top-1 -right-1 flex h-3 w-3">
-                                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-500 opacity-75"></span>
-                                    <span className="relative inline-flex rounded-full h-3 w-3 bg-blue-600"></span>
-                                  </span>
-                                )}
-                                <span
-                                  className={`w-full font-bold break-words whitespace-normal px-0.5 ${showFullName ? 'text-[13px] leading-tight' : 'text-sm leading-tight'}`}
-                                  style={{ color: subject.color }}
-                                >
-                                  {showFullName ? subject.name : subject.shortName}
-                                </span>
-                                {entry?.room && (
-                                  <span className="w-full text-[10px] text-gray-400 mt-0.5 leading-none">{entry.room}</span>
-                                )}
-                                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-1.5 bg-gray-900 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-10">
-                                  {showFullName ? subject.shortName : subject.name}
-                                  <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900"></div>
-                                </div>
-                                </div>
-                              ) : eventsForCell.length === 0 ? (
-                                <div className="min-h-[52px]" />
-                              ) : null}
+                        <th
+                          key={i}
+                          className={`p-3 text-center text-sm font-semibold border-b border-r border-blue-100 ${
+                            isToday ? 'bg-blue-600 text-white' : !inSchoolYear ? 'bg-gray-100 text-gray-400' : 'text-gray-700'
+                          }`}
+                        >
+                          <div>{DAYS_SHORT[i]}</div>
+                          <div className={`text-xs ${isToday ? 'text-blue-100' : 'text-gray-400'}`}>
+                            {format(date, 'd. M.')}
+                          </div>
+                          {!inSchoolYear && (
+                            <div className="mt-1 text-[10px] text-gray-400">Počitnice</div>
+                          )}
+                          {events.length > 0 && inSchoolYear && (
+                            <div className={`mt-1 text-[10px] font-medium ${isToday ? 'text-blue-100' : 'text-blue-600'}`}>
+                              {events.length} {getEventLabel(events.length)}
                             </div>
-                          </td>
-                        );
-                      })}
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
+                          )}
+                        </th>
+                      );
+                    })}
+                  </tr>
+                </thead>
+                <tbody>
+                  {periods.map(period => {
+                    const nowMins = now.getHours() * 60 + now.getMinutes();
+                    const periodActive = !period.isBreak
+                      && format(now, 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd')
+                      && nowMins >= toMinutes(period.startTime) && nowMins < toMinutes(period.endTime);
 
-      {/* Afternoon activities */}
-      {afternoonEntries.length > 0 && (
-        <div className="bg-white rounded-xl shadow-sm overflow-hidden mt-4">
-          <div className="px-4 py-3 bg-emerald-50 border-b border-emerald-100">
-            <h3 className="text-sm font-semibold text-emerald-800 flex items-center gap-2">
-              🌤️ Popoldanske dejavnosti
-            </h3>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full table-fixed border-collapse min-w-[700px]">
-              <thead>
-                <tr className="bg-emerald-50/50">
-                  <th className="p-3 text-left text-sm font-semibold text-gray-600 w-28 border-b border-r border-emerald-100">
-                    Čas
-                  </th>
-                  {weekDates.map((date, i) => {
-                    const isToday = format(date, 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd');
-                    const inSchoolYear = isDayInSchoolYear[i];
                     return (
-                      <th
-                        key={i}
-                        className={`p-3 text-center text-sm font-semibold border-b border-r border-emerald-100 ${
-                          isToday ? 'bg-emerald-600 text-white' : !inSchoolYear ? 'bg-gray-100 text-gray-400' : 'text-gray-700'
-                        }`}
-                      >
-                        {DAYS_SHORT[i]}
-                      </th>
-                    );
-                  })}
-                </tr>
-              </thead>
-              <tbody>
-                {(() => {
-                  // Collect unique time slots sorted
-                  const slots = [...new Set(
-                    afternoonEntries.map(e => `${e.startTime}-${e.endTime}`)
-                  )].sort().map(s => {
-                    const [start, end] = s.split('-');
-                    return { startTime: start, endTime: end };
-                  });
+                      <tr key={period.id} className={period.isBreak ? 'bg-amber-50/50' : 'hover:bg-gray-50'}>
+                        <td className={`p-2 text-center border-b border-r border-gray-100 ${periodActive ? 'bg-blue-100' : 'bg-gray-50'}`}>
+                          <div className="flex items-center justify-center gap-1">
+                            {period.isBreak && <Coffee className="w-3 h-3 text-amber-600" />}
+                            {periodActive && <span className="w-2 h-2 rounded-full bg-blue-600 animate-pulse" />}
+                            <span className={`text-xs font-bold ${periodActive ? 'text-blue-700' : period.isBreak ? 'text-amber-700' : 'text-gray-700'}`}>
+                              {period.name}
+                            </span>
+                          </div>
+                          <div className={`text-[10px] ${periodActive ? 'text-blue-500' : 'text-gray-400'}`}>
+                            {period.startTime} – {period.endTime}
+                          </div>
+                        </td>
+                        {[0, 1, 2, 3, 4].map(day => {
+                          const inSchoolYear = isDayInSchoolYear[day];
+                          const eventsForCell = getEventsForPeriod(day, period);
 
-                  return slots.map(slot => (
-                    <tr key={`${slot.startTime}-${slot.endTime}`} className="hover:bg-gray-50">
-                      <td className="p-2 text-center border-b border-r border-gray-100 bg-gray-50">
-                        <div className="text-xs font-bold text-gray-700">{slot.startTime}</div>
-                        <div className="text-[10px] text-gray-400">{slot.endTime}</div>
-                      </td>
-                      {[0, 1, 2, 3, 4].map(day => {
-                        const inSchoolYear = isDayInSchoolYear[day];
-                        if (!inSchoolYear) {
+                          if (!inSchoolYear) {
+                            return (
+                              <td key={day} className="p-1 border-b border-r border-gray-100 bg-gray-50">
+                                <div className="min-h-[52px]" />
+                              </td>
+                            );
+                          }
+
+                          if (period.isBreak) {
+                            return (
+                              <td key={day} className="p-1 border-b border-r border-gray-100">
+                                <div className="min-h-[40px] flex items-center justify-center">
+                                  <Coffee className="w-4 h-4 text-amber-300" />
+                                </div>
+                              </td>
+                            );
+                          }
+
+                          const entry = getEntry(day, period.id);
+                          const subject = entry ? getSubject(entry.subjectId) : null;
+                          const active = isActivePeriod(day, period);
+
                           return (
-                            <td key={day} className="p-1 border-b border-r border-gray-100 bg-gray-50">
-                              <div className="min-h-[48px]" />
-                            </td>
-                          );
-                        }
-
-                        const dayEntries = afternoonEntries.filter(
-                          e => e.dayOfWeek === day && e.startTime === slot.startTime && e.endTime === slot.endTime
-                        );
-
-                        return (
-                          <td key={day} className="p-1 border-b border-r border-gray-100">
-                            {dayEntries.length > 0 ? (
-                              <div className="space-y-1">
-                                {dayEntries.map(entry => (
+                            <td key={day} className={`p-1 border-b border-r border-gray-100 ${active ? 'bg-blue-50/60' : ''}`}>
+                              <div className="min-h-[52px] space-y-0.5">
+                                {eventsForCell.map(event => (
                                   <div
-                                    key={entry.id}
-                                    className="rounded-lg p-2 text-center min-h-[48px] flex flex-col items-center justify-center relative group cursor-default"
+                                    key={event.id}
+                                    className="w-full rounded-lg px-0.5 py-1.5 text-center flex flex-col justify-center leading-tight"
+                                    style={{ backgroundColor: event.color + '15', borderLeft: `3px solid ${event.color}` }}
+                                  >
+                                    <Star className="w-3.5 h-3.5 mb-0.5 self-center" style={{ color: event.color }} />
+                                    <span className="w-full text-[10px] font-semibold break-words whitespace-normal px-0.5" style={{ color: event.color }}>
+                                      {event.title}
+                                    </span>
+                                    <span className="w-full text-[9px] text-gray-400 leading-none">{event.startTime} - {event.endTime}</span>
+                                  </div>
+                                ))}
+                                {eventsForCell.length === 0 && subject ? (
+                                  <div
+                                    className={`w-full min-h-[52px] rounded-lg px-0.5 py-1.5 text-center flex flex-col items-center justify-center cursor-pointer relative group leading-tight ${
+                                      active ? 'ring-2 ring-blue-500 shadow-md shadow-blue-200' : ''
+                                    }`}
                                     style={{
-                                      backgroundColor: entry.color + '18',
-                                      borderLeft: `3px solid ${entry.color}`,
+                                      backgroundColor: subject.color + '18',
+                                      borderLeft: `3px solid ${subject.color}`,
                                     }}
                                   >
-                                    <span className="font-bold text-xs" style={{ color: entry.color }}>
-                                      {entry.name}
+                                    {active && (
+                                      <span className="absolute -top-1 -right-1 flex h-3 w-3">
+                                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-500 opacity-75"></span>
+                                        <span className="relative inline-flex rounded-full h-3 w-3 bg-blue-600"></span>
+                                      </span>
+                                    )}
+                                    <span
+                                      className={`w-full font-bold break-words whitespace-normal px-0.5 ${showFullName ? 'text-[13px] leading-tight' : 'text-sm leading-tight'}`}
+                                      style={{ color: subject.color }}
+                                    >
+                                      {showFullName ? subject.name : subject.shortName}
                                     </span>
-                                    {/* Tooltip */}
+                                    {entry?.room && (
+                                      <span className="w-full text-[10px] text-gray-400 mt-0.5 leading-none">{entry.room}</span>
+                                    )}
                                     <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-1.5 bg-gray-900 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-10">
-                                      {entry.name} ({entry.startTime}–{entry.endTime})
+                                      {showFullName ? subject.shortName : subject.name}
                                       <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900"></div>
                                     </div>
                                   </div>
-                                ))}
+                                ) : eventsForCell.length === 0 ? (
+                                  <div className="min-h-[52px]" />
+                                ) : null}
                               </div>
-                            ) : (
-                              <div className="min-h-[48px]" />
-                            )}
-                          </td>
-                        );
-                      })}
-                    </tr>
-                  ));
-                })()}
-              </tbody>
-            </table>
-          </div>
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
-      )}
+
+        {/* Afternoon activities */}
+        {afternoonEntries.length > 0 && (
+          <div className="bg-white rounded-xl shadow-sm overflow-hidden mt-4">
+            <div className="px-4 py-3 bg-emerald-50 border-b border-emerald-100">
+              <h3 className="text-sm font-semibold text-emerald-800 flex items-center gap-2">
+                🌤️ Popoldanske dejavnosti
+              </h3>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full table-fixed border-collapse min-w-[700px]">
+                <thead>
+                  <tr className="bg-emerald-50/50">
+                    <th className="p-3 text-left text-sm font-semibold text-gray-600 w-28 border-b border-r border-emerald-100">
+                      Čas
+                    </th>
+                    {weekDates.map((date, i) => {
+                      const isToday = format(date, 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd');
+                      const inSchoolYear = isDayInSchoolYear[i];
+                      return (
+                        <th
+                          key={i}
+                          className={`p-3 text-center text-sm font-semibold border-b border-r border-emerald-100 ${
+                            isToday ? 'bg-emerald-600 text-white' : !inSchoolYear ? 'bg-gray-100 text-gray-400' : 'text-gray-700'
+                          }`}
+                        >
+                          {DAYS_SHORT[i]}
+                        </th>
+                      );
+                    })}
+                  </tr>
+                </thead>
+                <tbody>
+                  {(() => {
+                    const slots = [...new Set(
+                      afternoonEntries.map(e => `${e.startTime}-${e.endTime}`)
+                    )].sort().map(s => {
+                      const [start, end] = s.split('-');
+                      return { startTime: start, endTime: end };
+                    });
+
+                    return slots.map(slot => (
+                      <tr key={`${slot.startTime}-${slot.endTime}`} className="hover:bg-gray-50">
+                        <td className="p-2 text-center border-b border-r border-gray-100 bg-gray-50">
+                          <div className="text-xs font-bold text-gray-700">{slot.startTime}</div>
+                          <div className="text-[10px] text-gray-400">{slot.endTime}</div>
+                        </td>
+                        {[0, 1, 2, 3, 4].map(day => {
+                          const inSchoolYear = isDayInSchoolYear[day];
+                          if (!inSchoolYear) {
+                            return (
+                              <td key={day} className="p-1 border-b border-r border-gray-100 bg-gray-50">
+                                <div className="min-h-[48px]" />
+                              </td>
+                            );
+                          }
+
+                          const dayEntries = afternoonEntries.filter(
+                            e => e.dayOfWeek === day && e.startTime === slot.startTime && e.endTime === slot.endTime
+                          );
+
+                          return (
+                            <td key={day} className="p-1 border-b border-r border-gray-100">
+                              {dayEntries.length > 0 ? (
+                                <div className="space-y-1">
+                                  {dayEntries.map(entry => (
+                                    <div
+                                      key={entry.id}
+                                      className="rounded-lg p-2 text-center min-h-[48px] flex flex-col items-center justify-center relative group cursor-default"
+                                      style={{
+                                        backgroundColor: entry.color + '18',
+                                        borderLeft: `3px solid ${entry.color}`,
+                                      }}
+                                    >
+                                      <span className="font-bold text-xs" style={{ color: entry.color }}>
+                                        {entry.name}
+                                      </span>
+                                      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-1.5 bg-gray-900 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-10">
+                                        {entry.name} ({entry.startTime}–{entry.endTime})
+                                        <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900"></div>
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              ) : (
+                                <div className="min-h-[48px]" />
+                              )}
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    ));
+                  })()}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
       </div>{/* end scheduleRef */}
     </div>
   );
