@@ -106,7 +106,7 @@ export default function App() {
           </div>
         </div>
         <footer className="p-4 text-center text-xs text-gray-400">
-          Created by MT
+          Created by Matjaž Tekavec
         </footer>
       </main>
     </div>
