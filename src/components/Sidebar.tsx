@@ -19,8 +19,6 @@ import {
   StickyNote,
   Bus,
   Mail,
-  Moon,
-  Sun,
 } from 'lucide-react';
 
 interface Props {
@@ -28,8 +26,6 @@ interface Props {
   currentPage: Page;
   onNavigate: (page: Page) => void;
   onLogout: () => void;
-  dark: boolean;
-  onToggleDark: () => void;
 }
 
 const adminMenuItems: { page: Page; label: string; icon: React.ReactNode }[] = [
@@ -54,7 +50,7 @@ const parentMenuItems: { page: Page; label: string; icon: React.ReactNode }[] = 
   { page: 'email-settings', label: 'Email obvestila', icon: <Mail className="w-5 h-5" /> },
 ];
 
-export default function Sidebar({ user, currentPage, onNavigate, onLogout, dark, onToggleDark }: Props) {
+export default function Sidebar({ user, currentPage, onNavigate, onLogout }: Props) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const menuItems = user.role === 'admin' ? adminMenuItems : parentMenuItems;
 
@@ -65,14 +61,14 @@ export default function Sidebar({ user, currentPage, onNavigate, onLogout, dark,
 
   const sidebarContent = (
     <>
-      <div className="p-5 border-b border-blue-700 dark:border-gray-700">
+      <div className="p-5 border-b border-blue-700">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-blue-500 dark:bg-blue-600 rounded-full flex items-center justify-center text-white font-bold shrink-0">
+          <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center text-white font-bold shrink-0">
             {user.fullName.charAt(0).toUpperCase()}
           </div>
           <div className="min-w-0 flex-1">
             <p className="text-white font-semibold truncate">{user.fullName}</p>
-            <p className="text-blue-300 dark:text-gray-400 text-xs">
+            <p className="text-blue-300 text-xs">
               {user.role === 'admin' ? 'Administrator' : 'Starš'}
             </p>
           </div>
@@ -87,8 +83,8 @@ export default function Sidebar({ user, currentPage, onNavigate, onLogout, dark,
             onClick={() => handleNav(item.page)}
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-left transition ${
               currentPage === item.page
-                ? 'bg-blue-700 dark:bg-gray-700 text-white'
-                : 'text-blue-200 dark:text-gray-400 hover:bg-blue-700/50 dark:hover:bg-gray-700/50 hover:text-white'
+                ? 'bg-blue-700 text-white'
+                : 'text-blue-200 hover:bg-blue-700/50 hover:text-white'
             }`}
           >
             {item.icon}
@@ -97,18 +93,10 @@ export default function Sidebar({ user, currentPage, onNavigate, onLogout, dark,
         ))}
       </nav>
 
-      <div className="p-3 border-t border-blue-700 dark:border-gray-700 space-y-1">
-        {/* Dark mode toggle */}
-        <button
-          onClick={onToggleDark}
-          className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-blue-200 dark:text-gray-400 hover:bg-blue-700/50 dark:hover:bg-gray-700/50 hover:text-white transition"
-        >
-          {dark ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
-          <span className="text-sm font-medium">{dark ? 'Svetli način' : 'Temni način'}</span>
-        </button>
+      <div className="p-3 border-t border-blue-700">
         <button
           onClick={onLogout}
-          className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-blue-200 dark:text-gray-400 hover:bg-red-600/80 hover:text-white transition"
+          className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-blue-200 hover:bg-red-600/80 hover:text-white transition"
         >
           <LogOut className="w-5 h-5" />
           <span className="text-sm font-medium">Odjava</span>
@@ -120,10 +108,10 @@ export default function Sidebar({ user, currentPage, onNavigate, onLogout, dark,
   return (
     <>
       {/* Mobile top bar */}
-      <div className="lg:hidden fixed top-0 left-0 right-0 z-40 bg-blue-800 dark:bg-gray-800 flex items-center h-14 px-4 shadow-lg">
+      <div className="lg:hidden fixed top-0 left-0 right-0 z-40 bg-blue-800 flex items-center h-14 px-4 shadow-lg">
         <button
           onClick={() => setMobileOpen(!mobileOpen)}
-          className="text-white p-1.5 rounded-lg hover:bg-blue-700 dark:hover:bg-gray-700 transition"
+          className="text-white p-1.5 rounded-lg hover:bg-blue-700 transition"
         >
           {mobileOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
         </button>
@@ -141,7 +129,7 @@ export default function Sidebar({ user, currentPage, onNavigate, onLogout, dark,
       {/* Sidebar */}
       <aside
         className={`
-          fixed top-0 left-0 z-50 h-screen w-64 bg-blue-800 dark:bg-gray-800 flex flex-col
+          fixed top-0 left-0 z-50 h-screen w-64 bg-blue-800 flex flex-col
           transition-transform duration-300 ease-in-out
           lg:translate-x-0
           ${mobileOpen ? 'translate-x-0' : '-translate-x-full'}
