@@ -25,6 +25,7 @@ A school schedule management system with Docker support, Express.js API backend,
 - ✅ 🌅 Afternoon Schedule — Manage afternoon activities by class/student
 - ✅ 🚌 Bus Rides — Display bus rides to and from school
 - ✅ Email Notifications — Toggle email notifications for added events, announcements, and afternoon activities
+- ✅ **Schedule export to PDF** — useful for printing
 
 ## 🏗️ Architecture
 
