@@ -103,6 +103,11 @@ export default function App() {
             {renderPage()}
           </div>
         </div>
+        <footer className="p-4 text-center text-xs text-gray-400">
+          Created by MT
+        </footer>
+      </main>
+    </div>
       </main>
     </div>
   );
