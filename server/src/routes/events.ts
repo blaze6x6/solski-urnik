@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { query, queryOne, execute } from '../db.js';
 import { authMiddleware, adminMiddleware } from '../auth.js';
 import { notifyAllWithCalendar } from '../mailer.js';
+import { notifyAllInApp } from '../notify.js';
 
 const router = Router();
 
