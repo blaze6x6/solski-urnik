@@ -137,6 +137,7 @@ router.post('/', adminMiddleware, async (req, res) => {
        <p><small>Odprite priloženo .ics datoteko za dodajanje v Google Koledar ali drug koledar.</small></p>`,
       { title, date, startTime, endTime, recurrence: recurrence || 'none', description: title }
     ).catch(() => {});
+    notifyAllInApp(`Nov dogodek: ${title} (${date}, ${startTime}–${endTime})`, 'info').catch(() => {});
   } catch (error) {
     console.error('Create event error:', error);
     res.status(500).json({ error: 'Napaka pri ustvarjanju dogodka' });
