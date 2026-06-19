@@ -4,7 +4,7 @@ import { ScheduleEntry, Period, Subject, DayEvent, AfternoonEntry } from '../typ
 import { format, startOfWeek, addDays, isWithinInterval, parseISO, addWeeks, subWeeks } from 'date-fns';
 import { sl } from 'date-fns/locale';
 import { ChevronLeft, ChevronRight, Calendar, Star, Coffee, Umbrella, Type } from 'lucide-react';
-import {html2canvas} from 'html2canvas';
+import { toPng } from 'html-to-image';
 import { jsPDF } from 'jspdf';
 
 const DAYS_SHORT = ['Pon', 'Tor', 'Sre', 'Čet', 'Pet'];
@@ -35,14 +35,13 @@ export default function ScheduleView({ classId, className, title }: Props) {
     if (!el || exporting) return;
     setExporting(true);
     try {
-      const canvas = await html2canvas(el, {
-        scale: 2,
-        useCORS: true,
+      const imgData = await toPng(el, {
+        pixelRatio: 2,
         backgroundColor: '#f3f4f6',
       });
-      const imgData = canvas.toDataURL('image/png');
-      const imgW = canvas.width;
-      const imgH = canvas.height;
+      // Get dimensions from rendered element
+      const imgW = el.offsetWidth * 2;
+      const imgH = el.offsetHeight * 2;
       // A4 landscape fits schedules better
       const pdf = new jsPDF({
         orientation: imgW > imgH ? 'landscape' : 'portrait',
