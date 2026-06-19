@@ -366,10 +366,7 @@ export default function ScheduleView({ classId, className, title }: Props) {
                                     }}
                                   >
                                     {active && (
-                                      <span className="absolute -top-1 -right-1 flex h-3 w-3">
-                                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-500 opacity-75"></span>
-                                        <span className="relative inline-flex rounded-full h-3 w-3 bg-blue-600"></span>
-                                      </span>
+                                      <span className="absolute -top-1 -right-1 h-3 w-3 rounded-full bg-blue-600 animate-pulse"></span>
                                     )}
                                     <span
                                       className={`w-full font-bold break-words whitespace-normal px-0.5 ${showFullName ? 'text-[13px] leading-tight' : 'text-sm leading-tight'}`}
