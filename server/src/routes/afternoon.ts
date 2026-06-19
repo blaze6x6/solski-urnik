@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { query, queryOne, execute } from '../db.js';
 import { authMiddleware, adminMiddleware } from '../auth.js';
 import { notifyAllWithCalendar } from '../mailer.js';
+import { notifyAllInApp } from '../notify.js';
 
 const router = Router();
 
@@ -81,6 +82,7 @@ router.post('/', adminMiddleware, async (req, res) => {
        <p><small>Odprite priloženo .ics datoteko za dodajanje v koledar.</small></p>`,
       { title: name, date: dateStr, startTime, endTime, recurrence: 'weekly', description: name }
     ).catch(() => {});
+    notifyAllInApp(`Nova popoldanska dejavnost: ${name} (${days[dayOfWeek]}, ${startTime}–${endTime})`, 'info').catch(() => {});
   } catch (error) {
     console.error('Create afternoon error:', error);
     res.status(500).json({ error: 'Napaka pri ustvarjanju' });
