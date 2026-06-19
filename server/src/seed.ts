@@ -38,7 +38,19 @@ export async function seedAdmin(): Promise<void> {
         updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
       )`);
       await execute("INSERT INTO smtp_settings (id, host) VALUES (1, '') ON CONFLICT (id) DO NOTHING");
-      
+
+      // notifications table
+      await execute(`CREATE TABLE IF NOT EXISTS notifications (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        message TEXT NOT NULL,
+        type VARCHAR(20) NOT NULL DEFAULT 'info',
+        read BOOLEAN NOT NULL DEFAULT false,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+      )`);
+      await execute("CREATE INDEX IF NOT EXISTS idx_notifications_user ON notifications(user_id, read, created_at DESC)");
+
+      // bus_rides table
       await execute(`CREATE TABLE IF NOT EXISTS bus_rides (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         direction VARCHAR(20) NOT NULL CHECK (direction IN ('to_school', 'from_school')),
