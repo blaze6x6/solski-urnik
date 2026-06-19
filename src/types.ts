@@ -110,6 +110,16 @@ export interface AppNotification {
   createdAt: string;
 }
 
+export interface Grade {
+  id: string;
+  studentId: string;
+  subjectId: string;
+  grade: number; // 1-5
+  type: 'written' | 'oral'; // pisno ali ustno
+  date: string;
+  note?: string;
+}
+
 export type Page =
   | 'login'
   | 'dashboard'
@@ -126,3 +136,4 @@ export type Page =
   | 'notes';
   | 'bus';
   | 'email-settings';
+  | 'grades';
