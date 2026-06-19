@@ -16,6 +16,7 @@ import EventsPage from './components/EventsPage';
 import NotesPage from './components/NotesPage';
 import BusPage from './components/BusPage';
 import EmailSettingsPage from './components/EmailSettingsPage';
+import GradesPage from './components/GradesPage';
 
 export default function App() {
   const [user, setUser] = useState<User | null>(api.getCurrentUser);
@@ -83,6 +84,8 @@ export default function App() {
         return <BusPage />;
       case 'email-settings':
         return <EmailSettingsPage user={user} />;
+      case 'grades':
+        return <GradesPage user={user} />;
       default:
         return <Dashboard user={user} />;
     }
