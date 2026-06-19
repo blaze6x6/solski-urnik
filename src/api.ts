@@ -1,4 +1,4 @@
-import { User, Student, SchoolClass, Subject, ScheduleEntry, SchoolYear, Period, DayEvent, StudentNote, AfternoonEntry, BusRide, SmtpSettings, AppNotification } from './types';
+import { User, Student, SchoolClass, Subject, ScheduleEntry, SchoolYear, Period, DayEvent, StudentNote, AfternoonEntry, BusRide, SmtpSettings, AppNotification, Grade } from './types';
 
 // @ts-ignore
 const API_URL = (import.meta.env?.VITE_API_URL as string) || '/api';
@@ -390,4 +390,24 @@ export async function markAllNotificationsRead(): Promise<void> {
 }
 export async function deleteNotification(id: string): Promise<void> {
   await request(`/notifications/${id}`, { method: 'DELETE' });
+}
+
+// Grades
+export async function getGradesForStudent(studentId: string): Promise<Grade[]> {
+  return request<Grade[]>(`/grades/student/${studentId}`);
+}
+export async function createGrade(grade: Omit<Grade, 'id' | 'createdAt'>): Promise<Grade> {
+  return request<Grade>('/grades', {
+    method: 'POST',
+    body: JSON.stringify(grade),
+  });
+}
+export async function updateGrade(id: string, updates: Partial<Grade>): Promise<Grade> {
+  return request<Grade>(`/grades/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(updates),
+  });
+}
+export async function deleteGrade(id: string): Promise<void> {
+  await request(`/grades/${id}`, { method: 'DELETE' });
 }
