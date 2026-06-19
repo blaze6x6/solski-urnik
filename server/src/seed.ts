@@ -39,6 +39,33 @@ export async function seedAdmin(): Promise<void> {
       )`);
       await execute("INSERT INTO smtp_settings (id, host) VALUES (1, '') ON CONFLICT (id) DO NOTHING");
 
+      // grades table
+    await execute(`CREATE TABLE IF NOT EXISTS grades (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      student_id UUID NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+      subject_id UUID NOT NULL REFERENCES subjects(id) ON DELETE CASCADE,
+      grade INTEGER NOT NULL CHECK (grade BETWEEN 1 AND 5),
+      type VARCHAR(20) NOT NULL CHECK (type IN ('written', 'oral')),
+      grade_date DATE NOT NULL,
+      note VARCHAR(500),
+      created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+    )`);
+    await execute("CREATE INDEX IF NOT EXISTS idx_grades_student ON grades(student_id)");
+    await execute("CREATE INDEX IF NOT EXISTS idx_grades_subject ON grades(student_id, subject_id)");
+      // grades table
+      await execute(`CREATE TABLE IF NOT EXISTS grades (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        student_id UUID NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+        subject_id UUID NOT NULL REFERENCES subjects(id) ON DELETE CASCADE,
+        grade INTEGER NOT NULL CHECK (grade BETWEEN 1 AND 5),
+        type VARCHAR(20) NOT NULL CHECK (type IN ('written', 'oral')),
+        grade_date DATE NOT NULL,
+        note VARCHAR(500),
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+      )`);
+      await execute("CREATE INDEX IF NOT EXISTS idx_grades_student ON grades(student_id)");
+      await execute("CREATE INDEX IF NOT EXISTS idx_grades_subject ON grades(student_id, subject_id)");
+
       // notifications table
       await execute(`CREATE TABLE IF NOT EXISTS notifications (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
