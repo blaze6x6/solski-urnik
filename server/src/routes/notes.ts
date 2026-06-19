@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { query, queryOne, execute } from '../db.js';
 import { authMiddleware, adminMiddleware, AuthRequest } from '../auth.js';
 import { sendEmail } from '../mailer.js';
+import { notifyUsersInApp } from '../notify.js';
 
 const router = Router();
 
@@ -80,21 +81,28 @@ router.post('/', adminMiddleware, async (req, res) => {
         const student = await queryOne<{ first_name: string; last_name: string }>(
           'SELECT first_name, last_name FROM students WHERE id = $1', [studentId]
         );
-        const parents = await query<{ email: string }>(
-          `SELECT u.email FROM users u
+        const sName = `${student?.first_name || ''} ${student?.last_name || ''}`;
+        // Email
+        const parents = await query<{ id: string; email: string }>(
+          `SELECT u.id, u.email FROM users u
            JOIN parent_children pc ON pc.parent_id = u.id
-           WHERE pc.student_id = $1 AND u.email IS NOT NULL AND u.email != '' AND u.email_notifications = true`,
+           WHERE pc.student_id = $1`,
           [studentId]
         );
         for (const p of parents) {
-          sendEmail(
-            p.email,
-            `Nova beležka za ${student?.first_name || ''} ${student?.last_name || ''}`,
-            `<p>Nova beležka za <strong>${student?.first_name || ''} ${student?.last_name || ''}</strong>:</p>
-             <p>${content}</p>
-             <p><small>Datum: ${date}</small></p>`
-          ).catch(() => {});
+          if (p.email) {
+            sendEmail(
+              p.email,
+              `Nova beležka za ${sName}`,
+              `<p>Nova beležka za <strong>${sName}</strong>:</p>
+               <p>${content}</p>
+               <p><small>Datum: ${date}</small></p>`
+            ).catch(() => {});
+          }
         }
+        // In-app
+        const parentIds = parents.map(p => p.id);
+        notifyUsersInApp(parentIds, `Nova beležka za ${sName}: ${content.substring(0, 100)}`, 'info').catch(() => {});
       } catch {}
     })();
   } catch (error) {
