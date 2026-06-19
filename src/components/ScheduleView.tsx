@@ -4,6 +4,8 @@ import { ScheduleEntry, Period, Subject, DayEvent, AfternoonEntry } from '../typ
 import { format, startOfWeek, addDays, isWithinInterval, parseISO, addWeeks, subWeeks } from 'date-fns';
 import { sl } from 'date-fns/locale';
 import { ChevronLeft, ChevronRight, Calendar, Star, Coffee, Umbrella, Type } from 'lucide-react';
+import html2canvas from 'html2canvas';
+import { jsPDF } from 'jspdf';
 
 const DAYS_SHORT = ['Pon', 'Tor', 'Sre', 'Čet', 'Pet'];
 
@@ -24,14 +26,53 @@ export default function ScheduleView({ classId, className, title }: Props) {
   const [loading, setLoading] = useState(true);
   const [now, setNow] = useState(new Date());
   const [showFullName, setShowFullName] = useState(() => localStorage.getItem('schedule_showFullName') === 'true');
+  const [exporting, setExporting] = useState(false);
+  const scheduleRef = useRef<HTMLDivElement>(null);
+  const weekStart = startOfWeek(currentDate, { weekStartsOn: 1 });
+  const weekDates = Array.from({ length: 5 }, (_, i) => addDays(weekStart, i));
+  const exportPdf = useCallback(async () => {
+    const el = scheduleRef.current;
+    if (!el || exporting) return;
+    setExporting(true);
+    try {
+      const canvas = await html2canvas(el, {
+        scale: 2,
+        useCORS: true,
+        backgroundColor: '#f3f4f6',
+      });
+      const imgData = canvas.toDataURL('image/png');
+      const imgW = canvas.width;
+      const imgH = canvas.height;
+      // A4 landscape fits schedules better
+      const pdf = new jsPDF({
+        orientation: imgW > imgH ? 'landscape' : 'portrait',
+        unit: 'mm',
+        format: 'a4',
+      });
+      const pageW = pdf.internal.pageSize.getWidth();
+      const pageH = pdf.internal.pageSize.getHeight();
+      const margin = 8;
+      const usableW = pageW - margin * 2;
+      const usableH = pageH - margin * 2;
+      const ratio = Math.min(usableW / imgW, usableH / imgH);
+      const finalW = imgW * ratio;
+      const finalH = imgH * ratio;
+      const x = margin + (usableW - finalW) / 2;
+      pdf.addImage(imgData, 'PNG', x, margin, finalW, finalH);
+      const weekLabel = `${format(weekStart, 'd.M.yyyy')}-${format(addDays(weekStart, 4), 'd.M.yyyy')}`;
+      pdf.save(`urnik-${weekLabel}.pdf`);
+    } catch (err) {
+      console.error('PDF export error:', err);
+    } finally {
+      setExporting(false);
+    }
+  }, [exporting, weekStart]);
+
   // Live clock – update every 30 seconds
   useEffect(() => {
     const timer = setInterval(() => setNow(new Date()), 30_000);
     return () => clearInterval(timer);
   }, []);
-
-  const weekStart = startOfWeek(currentDate, { weekStartsOn: 1 });
-  const weekDates = Array.from({ length: 5 }, (_, i) => addDays(weekStart, i));
 
 // Funkcija za pravilno sklanjanje števnikov
   const getEventLabel = (count: number) => {
@@ -166,6 +207,19 @@ export default function ScheduleView({ classId, className, title }: Props) {
 
         <div className="flex items-center gap-2">
           <button
+            onClick={exportPdf}
+            disabled={exporting}
+            className="px-3 py-1.5 text-sm bg-green-100 text-green-700 rounded-lg hover:bg-green-200 transition font-medium flex items-center gap-1.5 disabled:opacity-50"
+            title="Izvozi v PDF"
+          >
+            {exporting ? (
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-green-700"></div>
+            ) : (
+              <FileDown className="w-4 h-4" />
+            )}
+            PDF
+          </button>
+          <button
             onClick={() => {
               const next = !showFullName;
               setShowFullName(next);
@@ -193,7 +247,10 @@ export default function ScheduleView({ classId, className, title }: Props) {
           </button>
         </div>
       </div>
-
+      
+      {/* Printable area */}
+      <div ref={scheduleRef}>
+        
       {/* Schedule Grid */}
       <div className="bg-white rounded-xl shadow-sm overflow-hidden">
         {loading ? (
@@ -443,6 +500,7 @@ export default function ScheduleView({ classId, className, title }: Props) {
           </div>
         </div>
       )}
+      </div>{/* end scheduleRef */}
     </div>
   );
 }
