@@ -23,7 +23,6 @@ export default function App() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Verify token on mount
     if (api.isLoggedIn()) {
       api.refreshCurrentUser()
         .then(u => setUser(u))
@@ -90,15 +89,15 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-100">
+    <div className="min-h-screen bg-gray-100 transition-colors">
       <Sidebar
         user={user}
         currentPage={currentPage}
         onNavigate={setCurrentPage}
         onLogout={handleLogout}
       />
-      <main className="pt-14 lg:pt-0 lg:ml-64 min-h-screen">
-        <div className="p-4 lg:p-8">
+      <main className="pt-14 lg:pt-0 lg:ml-64 min-h-screen flex flex-col">
+        <div className="p-4 lg:p-8 flex-1">
           <div className="max-w-6xl mx-auto">
             {renderPage()}
           </div>
