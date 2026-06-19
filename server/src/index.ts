@@ -17,6 +17,7 @@ import notesRoutes from './routes/notes.js';
 import afternoonRoutes from './routes/afternoon.js';
 import busRoutes from './routes/bus.js';
 import emailRoutes from './routes/email.js';
+import notificationsRoutes from './routes/notifications.js';
 
 const app = express();
 const PORT = parseInt(process.env.PORT || '3001');
@@ -49,6 +50,7 @@ app.use('/api/notes', notesRoutes);
 app.use('/api/afternoon', afternoonRoutes);
 app.use('/api/bus', busRoutes);
 app.use('/api/email', emailRoutes);
+app.use('/api/notifications', notificationsRoutes);
 
 // Health check
 app.get('/api/health', (_req, res) => {
