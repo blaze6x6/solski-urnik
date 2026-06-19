@@ -134,6 +134,17 @@ CREATE TABLE IF NOT EXISTS smtp_settings (
 );
 INSERT INTO smtp_settings (id, host) VALUES (1, '') ON CONFLICT (id) DO NOTHING;
 
+-- In-app notifications
+CREATE TABLE IF NOT EXISTS notifications (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    message TEXT NOT NULL,
+    type VARCHAR(20) NOT NULL DEFAULT 'info',
+    read BOOLEAN NOT NULL DEFAULT false,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_notifications_user ON notifications(user_id, read, created_at DESC);
+
 -- School year configuration
 CREATE TABLE IF NOT EXISTS school_year (
     id INTEGER PRIMARY KEY DEFAULT 1 CHECK (id = 1),
