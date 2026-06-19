@@ -19,6 +19,7 @@ import {
   StickyNote,
   Bus,
   Mail,
+  Award,
 } from 'lucide-react';
 
 interface Props {
@@ -33,6 +34,7 @@ const adminMenuItems: { page: Page; label: string; icon: React.ReactNode }[] = [
   { page: 'class-schedule', label: 'Urnik razreda', icon: <Calendar className="w-5 h-5" /> },
   { page: 'events', label: 'Dogodki', icon: <CalendarCheck className="w-5 h-5" /> },
   { page: 'notes', label: 'Beležke', icon: <StickyNote className="w-5 h-5" /> },
+  { page: 'grades', label: 'Ocene', icon: <Award className="w-5 h-5" /> },
   { page: 'students', label: 'Učenci', icon: <GraduationCap className="w-5 h-5" /> },
   { page: 'subjects', label: 'Predmeti', icon: <BookOpen className="w-5 h-5" /> },
   { page: 'classes', label: 'Razredi', icon: <School className="w-5 h-5" /> },
@@ -46,6 +48,7 @@ const adminMenuItems: { page: Page; label: string; icon: React.ReactNode }[] = [
 
 const parentMenuItems: { page: Page; label: string; icon: React.ReactNode }[] = [
   { page: 'dashboard', label: 'Urnik otrok', icon: <Calendar className="w-5 h-5" /> },
+  { page: 'grades', label: 'Ocene', icon: <Award className="w-5 h-5" /> },
   { page: 'bus', label: 'Vozni red', icon: <Bus className="w-5 h-5" /> },
   { page: 'email-settings', label: 'Email obvestila', icon: <Mail className="w-5 h-5" /> },
 ];
