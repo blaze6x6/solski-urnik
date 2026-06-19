@@ -1,4 +1,4 @@
-import { User, Student, SchoolClass, Subject, ScheduleEntry, SchoolYear, Period, DayEvent, StudentNote, AfternoonEntry, BusRide, SmtpSettings } from './types';
+import { User, Student, SchoolClass, Subject, ScheduleEntry, SchoolYear, Period, DayEvent, StudentNote, AfternoonEntry, BusRide, SmtpSettings, AppNotification } from './types';
 
 // @ts-ignore
 const API_URL = (import.meta.env?.VITE_API_URL as string) || '/api';
@@ -372,4 +372,22 @@ export async function updateEmailPreferences(prefs: { email: string; emailNotifi
     method: 'PUT',
     body: JSON.stringify(prefs),
   });
+}
+
+// Notifications
+export async function getNotifications(): Promise<AppNotification[]> {
+  return request<AppNotification[]>('/notifications');
+}
+export async function getUnreadCount(): Promise<number> {
+  const data = await request<{ count: number }>('/notifications/unread-count');
+  return data.count;
+}
+export async function markNotificationRead(id: string): Promise<void> {
+  await request(`/notifications/${id}/read`, { method: 'PUT' });
+}
+export async function markAllNotificationsRead(): Promise<void> {
+  await request('/notifications/read-all', { method: 'PUT' });
+}
+export async function deleteNotification(id: string): Promise<void> {
+  await request(`/notifications/${id}`, { method: 'DELETE' });
 }
