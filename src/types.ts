@@ -101,6 +101,15 @@ export interface BusRide {
   label?: string;        // optional label like "1. vožnja"
 }
 
+export interface AppNotification {
+  id: string;
+  userId: string;
+  message: string;
+  type: 'info' | 'warning' | 'success';
+  read: boolean;
+  createdAt: string;
+}
+
 export type Page =
   | 'login'
   | 'dashboard'
