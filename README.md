@@ -25,6 +25,7 @@ Sistem za upravljanje šolskega urnika z Docker podporo, Express.js API backendo
 - ✅ **🌅 Popoldanski urnik** — upravljanje popoldanskih aktivnosti po razredih/učencih
 - ✅ **🚌 Avtobusne vožnje** — prikaz avtobusnih voženj do in od šole
 - ✅ **Email obveščanje** — vklop/izklop email obveščanja ob dodanem dogodku, obvestilu in popoldanski dejavnosti
+- ✅ **Izvoz urnika v PDF** — urnike se lahko izvozi v PDF, na primer za tiskanje
 
 ## 🏗️ Arhitektura
 
