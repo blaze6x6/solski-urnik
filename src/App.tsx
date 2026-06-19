@@ -108,7 +108,5 @@ export default function App() {
         </footer>
       </main>
     </div>
-      </main>
-    </div>
   );
 }
