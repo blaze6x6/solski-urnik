@@ -4,7 +4,7 @@ import { ScheduleEntry, Period, Subject, DayEvent, AfternoonEntry } from '../typ
 import { format, startOfWeek, addDays, isWithinInterval, parseISO, addWeeks, subWeeks } from 'date-fns';
 import { sl } from 'date-fns/locale';
 import { ChevronLeft, ChevronRight, Calendar, Star, Coffee, Umbrella, Type } from 'lucide-react';
-import html2canvas from 'html2canvas';
+import {html2canvas} from 'html2canvas';
 import { jsPDF } from 'jspdf';
 
 const DAYS_SHORT = ['Pon', 'Tor', 'Sre', 'Čet', 'Pet'];
