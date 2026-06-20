@@ -2,6 +2,7 @@ import { useState } from 'react';
 import * as api from '../api';
 import { useMultipleAsync } from '../hooks/useAsync';
 import { SchoolClass, Student } from '../types';
+import { ucenecPlural } from '../utils/plural';
 import { Plus, Trash2, Edit2, Save, X, School } from 'lucide-react';
 
 export default function ClassesPage() {
@@ -64,7 +65,8 @@ export default function ClassesPage() {
     setForm({ name: c.name, grade: c.grade });
   };
 
-  const studentsCount = (classId: string) => students?.filter((s: Student) => s.classId === classId).length || 0;
+  const studentsCount = (classId: string) =>
+    students?.filter((s: Student) => s.classId === classId).length || 0;
 
   return (
     <div>
@@ -150,7 +152,9 @@ export default function ClassesPage() {
                     </div>
                     <div>
                       <p className="font-semibold text-gray-800 text-lg">{c.name}</p>
-                      <p className="text-sm text-gray-500">{studentsCount(c.id)} učencev</p>
+                      <p className="text-sm text-gray-500">
+                        {ucenecPlural(studentsCount(c.id))}
+                      </p>
                     </div>
                   </div>
                   <div className="flex gap-1">
