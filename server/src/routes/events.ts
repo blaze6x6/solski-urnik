@@ -73,18 +73,7 @@ router.get('/time-events', async (req, res) => {
     if (!classId || !date) {
       return res.status(400).json({ error: 'Razred in datum sta obvezna' });
     }
-    // Debug: dump all events so we can see what's in the DB
-    const allEvents = await query<EventRow>(
-      `SELECT id, event_date, title, color, class_ids, start_time::text, end_time::text, recurrence
-       FROM day_events`
-    );
-    if (allEvents.length > 0) {
-      console.log(`📅 DEBUG all ${allEvents.length} events in DB:`);
-      for (const e of allEvents) {
-        console.log(`   - "${e.title}" date=${e.event_date.toISOString().split('T')[0]} time=${e.start_time}-${e.end_time} rec=${e.recurrence} classIds=${JSON.stringify(e.class_ids)}`);
-      }
-    }
-    const timeEventsSql = `
+        const timeEventsSql = `
       SELECT id, event_date, title, color, class_ids, start_time::text, end_time::text, recurrence
       FROM day_events
       WHERE start_time IS NOT NULL
