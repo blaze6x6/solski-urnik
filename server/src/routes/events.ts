@@ -97,6 +97,7 @@ router.get('/time-events', async (req, res) => {
     `;
 
     const events = await query<EventRow>(sql, [date, classId]);
+    console.log(`📅 time-events: date=${date}, classId=${classId}, found=${events.length}`);
     res.json(events.map(mapEvent));
   } catch (error) {
     console.error('Get time events error:', error);
