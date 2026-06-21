@@ -350,14 +350,18 @@ export default function ScheduleView({ classId, className, title }: Props) {
                                 {eventsForCell.map(event => (
                                   <div
                                     key={event.id}
-                                    className="w-full rounded-lg px-0.5 py-1.5 text-center flex flex-col justify-center leading-tight"
+                                    className="w-full rounded-lg px-0.5 py-1.5 text-center flex flex-col justify-center leading-tight relative group cursor-default"
                                     style={{ backgroundColor: event.color + '15', borderLeft: `3px solid ${event.color}` }}
                                   >
                                     <Star className="w-3.5 h-3.5 mb-0.5 self-center" style={{ color: event.color }} />
                                     <span className="w-full text-[10px] font-semibold break-words whitespace-normal px-0.5" style={{ color: event.color }}>
                                       {event.title}
                                     </span>
-                                    <span className="w-full text-[9px] text-gray-400 leading-none">{event.startTime} - {event.endTime}</span>
+                                    <span className="w-full text-[9px] text-gray-400 leading-none">{event.startTime} – {event.endTime}</span>
+                                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-1.5 bg-gray-900 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-10">
+                                      {event.title} ({event.startTime} – {event.endTime})
+                                      <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900"></div>
+                                    </div>
                                   </div>
                                 ))}
                                 {eventsForCell.length === 0 && subject ? (
@@ -383,7 +387,7 @@ export default function ScheduleView({ classId, className, title }: Props) {
                                       <span className="w-full text-[10px] text-gray-400 mt-0.5 leading-none">{entry.room}</span>
                                     )}
                                     <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-1.5 bg-gray-900 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-10">
-                                      {showFullName ? subject.shortName : subject.name}
+                                      {subject.name} ({period.startTime} – {period.endTime})
                                       <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900"></div>
                                     </div>
                                   </div>
