@@ -94,7 +94,7 @@ router.get('/time-events', async (req, res) => {
       FROM day_events
       WHERE start_time IS NOT NULL
         AND end_time IS NOT NULL
-        AND (class_ids = '{}' OR $2::uuid = ANY(class_ids))
+        AND (class_ids IS NULL OR class_ids = '{}' OR $2::uuid = ANY(class_ids))
         AND ${recurrenceWhere('$1')}
       ORDER BY start_time
     `;
