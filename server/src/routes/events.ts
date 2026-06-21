@@ -68,14 +68,11 @@ const RETURNING = `RETURNING id, event_date, title, color, class_ids, start_time
 // Get all events (admin list – one row per event definition)
 router.get('/', async (_req, res) => {
   try {
-    const events = await query<EventRow>(
-      `SELECT id, event_date, title, color, class_ids, start_time::text, end_time::text, recurrence
-       FROM day_events
-       ORDER BY event_date, start_time`
-    );
+    const events = await query<EventRow>(sql, [date, classId]);
+    console.log(`📅 time-events: date=${date}, classId=${classId}, found=${events.length}`);
     res.json(events.map(mapEvent));
   } catch (error) {
-    console.error('Get events error:', error);
+    console.error('Get time events error:', error);
     res.status(500).json({ error: 'Napaka pri pridobivanju dogodkov' });
   }
 });
