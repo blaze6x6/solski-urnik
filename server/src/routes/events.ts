@@ -3,13 +3,9 @@ import { query, queryOne, execute } from '../db.js';
 import { authMiddleware, adminMiddleware } from '../auth.js';
 import { notifyAllWithCalendar } from '../mailer.js';
 import { notifyAllInApp } from '../notify.js';
-
 const router = Router();
-
 router.use(authMiddleware);
-
 // ----- helpers -----
-
 interface EventRow {
   id: string;
   event_date: Date;
@@ -20,7 +16,6 @@ interface EventRow {
   end_time: string | null;
   recurrence: string;
 }
-
 function mapEvent(e: EventRow) {
   return {
     id: e.id,
@@ -33,12 +28,7 @@ function mapEvent(e: EventRow) {
     recurrence: e.recurrence || 'none',
   };
 }
-
-// Build a WHERE clause that matches a given date ($dateParam) against recurrence.
-// dateParam is the SQL placeholder like '$1'.
 function recurrenceWhere(dateParam: string): string {
-  // In PostgreSQL, (date - date) yields an integer (number of days).
-  // EXTRACT(ISODOW FROM date) yields 1=Mon … 7=Sun.
   const d = `${dateParam}::date`;
   return `(
     (recurrence = 'none'      AND event_date = ${d})
@@ -60,33 +50,30 @@ function recurrenceWhere(dateParam: string): string {
                               AND EXTRACT(DAY FROM event_date) = EXTRACT(DAY FROM ${d}))
   )`;
 }
-
 const RETURNING = `RETURNING id, event_date, title, color, class_ids, start_time::text, end_time::text, recurrence`;
-
 // ----- routes -----
-
-// Get all events (admin list – one row per event definition)
+// Get all events (admin list)
 router.get('/', async (_req, res) => {
   try {
-    const events = await query<EventRow>(sql, [date, classId]);
-    console.log(`📅 time-events: date=${date}, classId=${classId}, found=${events.length}`);
+    const events = await query<EventRow>(
+      `SELECT id, event_date, title, color, class_ids, start_time::text, end_time::text, recurrence
+       FROM day_events
+       ORDER BY event_date, start_time`
+    );
     res.json(events.map(mapEvent));
   } catch (error) {
-    console.error('Get time events error:', error);
+    console.error('Get events error:', error);
     res.status(500).json({ error: 'Napaka pri pridobivanju dogodkov' });
   }
 });
-
 // Get events for a class on a specific date (recurrence-aware)
-// $1 = date, $2 = classId
 router.get('/time-events', async (req, res) => {
   try {
     const { classId, date } = req.query;
     if (!classId || !date) {
       return res.status(400).json({ error: 'Razred in datum sta obvezna' });
     }
-
-    const sql = `
+    const timeEventsSql = `
       SELECT id, event_date, title, color, class_ids, start_time::text, end_time::text, recurrence
       FROM day_events
       WHERE start_time IS NOT NULL
@@ -95,8 +82,7 @@ router.get('/time-events', async (req, res) => {
         AND ${recurrenceWhere('$1')}
       ORDER BY start_time
     `;
-
-    const events = await query<EventRow>(sql, [date, classId]);
+    const events = await query<EventRow>(timeEventsSql, [date, classId]);
     console.log(`📅 time-events: date=${date}, classId=${classId}, found=${events.length}`);
     res.json(events.map(mapEvent));
   } catch (error) {
@@ -104,26 +90,22 @@ router.get('/time-events', async (req, res) => {
     res.status(500).json({ error: 'Napaka pri pridobivanju dogodkov' });
   }
 });
-
 // Create event
 router.post('/', adminMiddleware, async (req, res) => {
   try {
     const { date, title, color, classIds, startTime, endTime, recurrence } = req.body;
-
     if (!date || !title || !color || !startTime || !endTime) {
       return res.status(400).json({ error: 'Datum, naziv, barva, začetek in konec so obvezni' });
     }
     if (startTime >= endTime) {
       return res.status(400).json({ error: 'Ura začetka mora biti pred uro konca' });
     }
-
     const event = await queryOne<EventRow>(
       `INSERT INTO day_events (event_date, title, color, class_ids, is_all_day, start_time, end_time, recurrence)
        VALUES ($1, $2, $3, $4, false, $5, $6, $7)
        ${RETURNING}`,
       [date, title, color, classIds || [], startTime, endTime, recurrence || 'none']
     );
-
     res.status(201).json(mapEvent(event!));
     const recLabels: Record<string, string> = {
       none: '', daily: ' (vsak dan)', weekly: ' (vsak teden)',
@@ -142,17 +124,14 @@ router.post('/', adminMiddleware, async (req, res) => {
     res.status(500).json({ error: 'Napaka pri ustvarjanju dogodka' });
   }
 });
-
 // Update event
 router.put('/:id', adminMiddleware, async (req, res) => {
   try {
     const { id } = req.params;
     const { date, title, color, classIds, startTime, endTime, recurrence } = req.body;
-
     if (startTime && endTime && startTime >= endTime) {
       return res.status(400).json({ error: 'Ura začetka mora biti pred uro konca' });
     }
-
     const event = await queryOne<EventRow>(
       `UPDATE day_events SET
         event_date = COALESCE($1, event_date),
@@ -168,7 +147,6 @@ router.put('/:id', adminMiddleware, async (req, res) => {
       [date || null, title || null, color || null, classIds ?? null,
        startTime || null, endTime || null, recurrence || null, id]
     );
-
     if (!event) {
       return res.status(404).json({ error: 'Dogodek ne obstaja' });
     }
@@ -178,7 +156,6 @@ router.put('/:id', adminMiddleware, async (req, res) => {
     res.status(500).json({ error: 'Napaka pri posodabljanju dogodka' });
   }
 });
-
 // Delete event
 router.delete('/:id', adminMiddleware, async (req, res) => {
   try {
@@ -195,5 +172,4 @@ router.delete('/:id', adminMiddleware, async (req, res) => {
     res.status(500).json({ error: 'Napaka pri brisanju dogodka' });
   }
 });
-
 export default router;
