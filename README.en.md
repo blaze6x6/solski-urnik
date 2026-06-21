@@ -1,6 +1,8 @@
 [![Slovenščina](https://img.shields.io/badge/lang-SL-green.svg)](README.md)
 [![English](https://img.shields.io/badge/lang-EN-blue.svg)](README.en.md)
 
+English version: https://github.com/blaze6x6/school-schedule
+
 # 🏫 School Schedule
 
 A school schedule management system with Docker support, Express.js API backend, and PostgreSQL database.
