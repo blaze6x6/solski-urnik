@@ -103,18 +103,23 @@ export default function ScheduleView({ classId, className, title }: Props) {
   }, [classId]);
 
   // Load time-specific events for the week
+  const weekKey = format(weekStart, 'yyyy-MM-dd');
   useEffect(() => {
+    if (!classId) return;
     setLoading(true);
     Promise.all(
       weekDates.map(date =>
         api.getTimeEventsForClassAndDate(classId, format(date, 'yyyy-MM-dd'))
+          .catch(() => [] as DayEvent[])
       )
     ).then(events => {
       setTimeEvents(events);
       setLoading(false);
+    }).catch(() => {
+      setTimeEvents([[], [], [], [], []]);
+      setLoading(false);
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [classId, weekStart.toISOString()]);
+  }, [classId, weekKey]);
 
   // Check if the entire week is within school year
   const isWeekInSchoolYear = useMemo(() => {
