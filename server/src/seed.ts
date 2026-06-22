@@ -39,19 +39,36 @@ export async function seedAdmin(): Promise<void> {
       )`);
       await execute("INSERT INTO smtp_settings (id, host) VALUES (1, '') ON CONFLICT (id) DO NOTHING");
 
+      // day_events end_date column
+      await execute("ALTER TABLE day_events ADD COLUMN IF NOT EXISTS end_date DATE");
+      // calendar_events table
+      await execute(`CREATE TABLE IF NOT EXISTS calendar_events (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        title VARCHAR(200) NOT NULL,
+        color VARCHAR(20) NOT NULL DEFAULT '#3B82F6',
+        event_date DATE NOT NULL,
+        end_date DATE,
+        start_time TIME NOT NULL,
+        end_time TIME NOT NULL,
+        recurrence VARCHAR(20) NOT NULL DEFAULT 'none',
+        note VARCHAR(500),
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+      )`);
+      await execute("CREATE INDEX IF NOT EXISTS idx_calendar_events_date ON calendar_events(event_date)");
+
       // grades table
-    await execute(`CREATE TABLE IF NOT EXISTS grades (
-      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-      student_id UUID NOT NULL REFERENCES students(id) ON DELETE CASCADE,
-      subject_id UUID NOT NULL REFERENCES subjects(id) ON DELETE CASCADE,
-      grade INTEGER NOT NULL CHECK (grade BETWEEN 1 AND 5),
-      type VARCHAR(20) NOT NULL CHECK (type IN ('written', 'oral')),
-      grade_date DATE NOT NULL,
-      note VARCHAR(500),
-      created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-    )`);
-    await execute("CREATE INDEX IF NOT EXISTS idx_grades_student ON grades(student_id)");
-    await execute("CREATE INDEX IF NOT EXISTS idx_grades_subject ON grades(student_id, subject_id)");
+      await execute(`CREATE TABLE IF NOT EXISTS grades (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        student_id UUID NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+        subject_id UUID NOT NULL REFERENCES subjects(id) ON DELETE CASCADE,
+        grade INTEGER NOT NULL CHECK (grade BETWEEN 1 AND 5),
+        type VARCHAR(20) NOT NULL CHECK (type IN ('written', 'oral')),
+        grade_date DATE NOT NULL,
+        note VARCHAR(500),
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+      )`);
+      await execute("CREATE INDEX IF NOT EXISTS idx_grades_student ON grades(student_id)");
+      await execute("CREATE INDEX IF NOT EXISTS idx_grades_subject ON grades(student_id, subject_id)");
       // grades table
       await execute(`CREATE TABLE IF NOT EXISTS grades (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
