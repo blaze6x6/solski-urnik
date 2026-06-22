@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import * as api from '../api';
 import { CalendarEvent, Recurrence } from '../types';
 import { Plus, Trash2, Edit2, Save, X, CalendarDays, ChevronLeft, ChevronRight, Clock, Repeat } from 'lucide-react';
-import { format, startOfMonth, endOfMonth, startOfWeek, addDays, isSameMonth, isSameDay, parseISO, addMonths, subMonths } from 'date-fns';
+import { format, startOfMonth, endOfMonth, startOfWeek, addDays, isSameMonth, parseISO, addMonths, subMonths } from 'date-fns';
 import { sl } from 'date-fns/locale';
 const EVENT_COLORS = [
   '#EF4444', '#F97316', '#F59E0B', '#10B981', '#3B82F6', '#8B5CF6', '#EC4899', '#6B7280',
