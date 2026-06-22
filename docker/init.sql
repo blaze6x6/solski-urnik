@@ -134,6 +134,23 @@ CREATE TABLE IF NOT EXISTS smtp_settings (
 );
 INSERT INTO smtp_settings (id, host) VALUES (1, '') ON CONFLICT (id) DO NOTHING;
 
+-- Add end_date and range support to day_events
+ALTER TABLE day_events ADD COLUMN IF NOT EXISTS end_date DATE;
+-- Calendar events (personal/family calendar, all days of week, full year)
+CREATE TABLE IF NOT EXISTS calendar_events (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    title VARCHAR(200) NOT NULL,
+    color VARCHAR(20) NOT NULL DEFAULT '#3B82F6',
+    event_date DATE NOT NULL,
+    end_date DATE,
+    start_time TIME NOT NULL,
+    end_time TIME NOT NULL,
+    recurrence VARCHAR(20) NOT NULL DEFAULT 'none',
+    note VARCHAR(500),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_calendar_events_date ON calendar_events(event_date);
+
 -- Student grades
 CREATE TABLE IF NOT EXISTS grades (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
