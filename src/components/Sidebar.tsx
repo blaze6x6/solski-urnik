@@ -20,6 +20,7 @@ import {
   Bus,
   Mail,
   Award,
+  CalendarDays as CalendarIcon,
 } from 'lucide-react';
 
 interface Props {
@@ -44,6 +45,7 @@ const adminMenuItems: { page: Page; label: string; icon: React.ReactNode }[] = [
   { page: 'school-year', label: 'Šolsko leto', icon: <CalendarDays className="w-5 h-5" /> },
   { page: 'bus', label: 'Vozni red', icon: <Bus className="w-5 h-5" /> },
   { page: 'email-settings', label: 'Email obvestila', icon: <Mail className="w-5 h-5" /> },
+  { page: 'calendar', label: 'Koledar', icon: <CalendarIcon className="w-5 h-5" /> },
 ];
 
 const parentMenuItems: { page: Page; label: string; icon: React.ReactNode }[] = [
@@ -51,6 +53,7 @@ const parentMenuItems: { page: Page; label: string; icon: React.ReactNode }[] = 
   { page: 'grades', label: 'Ocene', icon: <Award className="w-5 h-5" /> },
   { page: 'bus', label: 'Vozni red', icon: <Bus className="w-5 h-5" /> },
   { page: 'email-settings', label: 'Email obvestila', icon: <Mail className="w-5 h-5" /> },
+  { page: 'calendar', label: 'Koledar', icon: <CalendarIcon className="w-5 h-5" /> },
 ];
 
 export default function Sidebar({ user, currentPage, onNavigate, onLogout }: Props) {
