@@ -147,7 +147,16 @@ CREATE TABLE IF NOT EXISTS calendar_events (
     end_time TIME NOT NULL,
     recurrence VARCHAR(20) NOT NULL DEFAULT 'none',
     note VARCHAR(500),
+    reminders JSONB DEFAULT '[]',
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+-- Sent reminders log (prevents duplicate sends)
+CREATE TABLE IF NOT EXISTS sent_reminders (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    event_id UUID NOT NULL REFERENCES calendar_events(id) ON DELETE CASCADE,
+    reminder_key VARCHAR(100) NOT NULL,
+    sent_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    UNIQUE(event_id, reminder_key)
 );
 CREATE INDEX IF NOT EXISTS idx_calendar_events_date ON calendar_events(event_date);
 
