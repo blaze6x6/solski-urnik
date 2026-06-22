@@ -62,17 +62,30 @@ export interface Period {
   isBreak?: boolean; // true = odmor, ne prikazuje se v urniku predmetov
 }
 
-export type Recurrence = 'none' | 'daily' | 'weekly' | 'biweekly' | 'triweekly' | 'monthly';
+export type Recurrence = 'none' | 'daily' | 'weekly' | 'biweekly' | 'triweekly' | 'monthly' | 'range';
 
 export interface DayEvent {
   id: string;
   date: string; // YYYY-MM-DD (start date for recurring)
+  endDate?: string; // YYYY-MM-DD (only for recurrence='range')
   title: string;
   color: string;
   classIds: string[]; // empty = all classes
   startTime: string; // HH:MM
   endTime: string; // HH:MM
   recurrence: Recurrence;
+}
+
+export interface CalendarEvent {
+  id: string;
+  date: string;
+  endDate?: string;
+  title: string;
+  color: string;
+  startTime: string;
+  endTime: string;
+  recurrence: Recurrence;
+  note?: string;
 }
 
 export interface StudentNote {
@@ -137,3 +150,4 @@ export type Page =
   | 'bus';
   | 'email-settings';
   | 'grades';
+  | 'calendar';
