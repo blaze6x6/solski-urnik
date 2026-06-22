@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import * as api from '../api';
-import { CalendarEvent, Recurrence } from '../types';
-import { Plus, Trash2, Edit2, Save, X, CalendarDays, ChevronLeft, ChevronRight, Clock, Repeat } from 'lucide-react';
+import { CalendarEvent, Recurrence, EventReminder } from '../types';
+import { Plus, Trash2, Edit2, Save, X, CalendarDays, ChevronLeft, ChevronRight, Clock, Repeat, Bell } from 'lucide-react';
 import { format, startOfMonth, endOfMonth, startOfWeek, addDays, isSameMonth, parseISO, addMonths, subMonths } from 'date-fns';
 import { sl } from 'date-fns/locale';
 const EVENT_COLORS = [
@@ -27,6 +27,7 @@ interface FormState {
   endTime: string;
   recurrence: Recurrence;
   note: string;
+  reminders: EventReminder[];
 }
 const emptyForm = (): FormState => ({
   title: '',
@@ -37,6 +38,7 @@ const emptyForm = (): FormState => ({
   endTime: '10:00',
   recurrence: 'none',
   note: '',
+  reminders: [],
 });
 const DAYS_SL = ['Pon', 'Tor', 'Sre', 'Čet', 'Pet', 'Sob', 'Ned'];
 export default function CalendarPage() {
@@ -103,6 +105,7 @@ export default function CalendarPage() {
         endDate: form.recurrence === 'range' ? form.endDate : undefined,
         startTime: form.startTime, endTime: form.endTime,
         recurrence: form.recurrence, note: form.note || undefined,
+        reminders: form.reminders,
       });
       setForm(emptyForm()); setShowForm(false); refresh();
     } finally { setSaving(false); }
@@ -116,6 +119,7 @@ export default function CalendarPage() {
         endDate: form.recurrence === 'range' ? form.endDate : undefined,
         startTime: form.startTime, endTime: form.endTime,
         recurrence: form.recurrence, note: form.note || undefined,
+        reminders: form.reminders,
       });
       setEditingId(null); refresh();
     } finally { setSaving(false); }
@@ -125,7 +129,7 @@ export default function CalendarPage() {
   };
   const startEdit = (e: CalendarEvent) => {
     setEditingId(e.id);
-    setForm({ title: e.title, color: e.color, date: e.date, endDate: e.endDate || '', startTime: e.startTime, endTime: e.endTime, recurrence: e.recurrence, note: e.note || '' });
+    setForm({ title: e.title, color: e.color, date: e.date, endDate: e.endDate || '', startTime: e.startTime, endTime: e.endTime, recurrence: e.recurrence, note: e.note || '', reminders: e.reminders || [] });
   };
   const today = format(new Date(), 'yyyy-MM-dd');
   return (
@@ -314,10 +318,108 @@ function EventForm({ form, setForm, saving, onSave, onCancel, compact }: {
         </div>
       </div>
       {!compact && (
-        <div>
-          <label className="block text-xs text-gray-500 mb-1">Opomba (neobvezno)</label>
-          <input value={form.note} onChange={e => setForm({ ...form, note: e.target.value })} placeholder="npr. ordinacija dr. Novak" className="w-full px-3 py-2 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 text-sm" />
-        </div>
+        <>
+          <div>
+            <label className="block text-xs text-gray-500 mb-1">Opomba (neobvezno)</label>
+            <input value={form.note} onChange={e => setForm({ ...form, note: e.target.value })} placeholder="npr. ordinacija dr. Novak" className="w-full px-3 py-2 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 text-sm" />
+          </div>
+          {/* Reminders */}
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <label className="block text-xs text-gray-500 flex items-center gap-1"><Bell className="w-3 h-3" /> Email opomniki</label>
+              <button
+                type="button"
+                onClick={() => setForm({ ...form, reminders: [...form.reminders, { type: 'hours', value: 1 }] })}
+                className="text-xs text-blue-600 hover:underline flex items-center gap-1"
+              >
+                <Plus className="w-3 h-3" /> Dodaj opomnik
+              </button>
+            </div>
+            {form.reminders.length === 0 && (
+              <p className="text-xs text-gray-400">Brez opomnikov.</p>
+            )}
+            <div className="space-y-2">
+              {form.reminders.map((rem, idx) => (
+                <div key={idx} className="flex items-center gap-2 bg-gray-50 rounded-lg p-2">
+                  <select
+                    value={rem.type}
+                    onChange={e => {
+                      const updated = [...form.reminders];
+                      updated[idx] = { ...updated[idx], type: e.target.value as 'hours' | 'days' | 'custom', value: e.target.value === 'custom' ? 0 : updated[idx].value || 1 };
+                      setForm({ ...form, reminders: updated });
+                    }}
+                    className="px-2 py-1 border rounded text-xs"
+                  >
+                    <option value="hours">Ur prej</option>
+                    <option value="days">Dni prej</option>
+                    <option value="custom">Točen datum</option>
+                  </select>
+                  {rem.type === 'hours' && (
+                    <select
+                      value={rem.value}
+                      onChange={e => {
+                        const updated = [...form.reminders];
+                        updated[idx] = { ...updated[idx], value: parseInt(e.target.value) };
+                        setForm({ ...form, reminders: updated });
+                      }}
+                      className="px-2 py-1 border rounded text-xs"
+                    >
+                      {Array.from({ length: 23 }, (_, i) => i + 1).map(h => (
+                        <option key={h} value={h}>{h}h</option>
+                      ))}
+                    </select>
+                  )}
+                  {rem.type === 'days' && (
+                    <select
+                      value={rem.value}
+                      onChange={e => {
+                        const updated = [...form.reminders];
+                        updated[idx] = { ...updated[idx], value: parseInt(e.target.value) };
+                        setForm({ ...form, reminders: updated });
+                      }}
+                      className="px-2 py-1 border rounded text-xs"
+                    >
+                      {Array.from({ length: 30 }, (_, i) => i + 1).map(d => (
+                        <option key={d} value={d}>{d} {d === 1 ? 'dan' : d === 2 ? 'dneva' : d <= 4 ? 'dni' : 'dni'}</option>
+                      ))}
+                    </select>
+                  )}
+                  {rem.type === 'custom' && (
+                    <>
+                      <input
+                        type="date"
+                        value={rem.customDate || ''}
+                        onChange={e => {
+                          const updated = [...form.reminders];
+                          updated[idx] = { ...updated[idx], customDate: e.target.value };
+                          setForm({ ...form, reminders: updated });
+                        }}
+                        className="px-2 py-1 border rounded text-xs"
+                      />
+                      <input
+                        type="time"
+                        value={rem.customTime || '09:00'}
+                        onChange={e => {
+                          const updated = [...form.reminders];
+                          updated[idx] = { ...updated[idx], customTime: e.target.value };
+                          setForm({ ...form, reminders: updated });
+                        }}
+                        className="px-2 py-1 border rounded text-xs"
+                      />
+                    </>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setForm({ ...form, reminders: form.reminders.filter((_, i) => i !== idx) })}
+                    className="p-1 text-red-500 hover:bg-red-50 rounded"
+                  >
+                    <Trash2 className="w-3 h-3" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        </>
       )}
       <div className="flex items-center gap-3">
         <div className="flex gap-1">
