@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 
 import { seedAdmin } from './seed.js';
+import { startReminderCron } from './reminder-cron.js';
 
 import authRoutes from './routes/auth.js';
 import usersRoutes from './routes/users.js';
@@ -88,6 +89,7 @@ async function start() {
 
   app.listen(PORT, '0.0.0.0', () => {
     console.log(`🚀 API server running on http://0.0.0.0:${PORT}`);
+    startReminderCron();
   });
 }
 
