@@ -55,6 +55,14 @@ export async function seedAdmin(): Promise<void> {
         created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
       )`);
       await execute("CREATE INDEX IF NOT EXISTS idx_calendar_events_date ON calendar_events(event_date)");
+      await execute("ALTER TABLE calendar_events ADD COLUMN IF NOT EXISTS reminders JSONB DEFAULT '[]'");
+      await execute(`CREATE TABLE IF NOT EXISTS sent_reminders (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        event_id UUID NOT NULL REFERENCES calendar_events(id) ON DELETE CASCADE,
+        reminder_key VARCHAR(100) NOT NULL,
+        sent_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+        UNIQUE(event_id, reminder_key)
+      )`);
 
       // grades table
       await execute(`CREATE TABLE IF NOT EXISTS grades (
