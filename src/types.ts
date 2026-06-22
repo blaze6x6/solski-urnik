@@ -76,6 +76,12 @@ export interface DayEvent {
   recurrence: Recurrence;
 }
 
+export interface EventReminder {
+  type: 'hours' | 'days' | 'custom';
+  value: number; // hours (1-23) or days (1-30)
+  customDate?: string; // YYYY-MM-DD for type='custom'
+  customTime?: string; // HH:MM for type='custom'
+}
 export interface CalendarEvent {
   id: string;
   date: string;
@@ -86,6 +92,7 @@ export interface CalendarEvent {
   endTime: string;
   recurrence: Recurrence;
   note?: string;
+  reminders?: EventReminder[];
 }
 
 export interface StudentNote {
