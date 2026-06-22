@@ -1,4 +1,4 @@
-import { User, Student, SchoolClass, Subject, ScheduleEntry, SchoolYear, Period, DayEvent, StudentNote, AfternoonEntry, BusRide, SmtpSettings, AppNotification, Grade } from './types';
+import { User, Student, SchoolClass, Subject, ScheduleEntry, SchoolYear, Period, DayEvent, StudentNote, AfternoonEntry, BusRide, SmtpSettings, AppNotification, Grade, CalendarEvent } from './types';
 
 // @ts-ignore
 const API_URL = (import.meta.env?.VITE_API_URL as string) || '/api';
@@ -410,4 +410,26 @@ export async function updateGrade(id: string, updates: Partial<Grade>): Promise<
 }
 export async function deleteGrade(id: string): Promise<void> {
   await request(`/grades/${id}`, { method: 'DELETE' });
+}
+// Calendar events
+export async function getCalendarEvents(): Promise<CalendarEvent[]> {
+  return request<CalendarEvent[]>('/calendar');
+}
+export async function getCalendarEventsForDate(date: string): Promise<CalendarEvent[]> {
+  return request<CalendarEvent[]>(`/calendar/date?date=${date}`);
+}
+export async function createCalendarEvent(event: Omit<CalendarEvent, 'id'>): Promise<CalendarEvent> {
+  return request<CalendarEvent>('/calendar', {
+    method: 'POST',
+    body: JSON.stringify(event),
+  });
+}
+export async function updateCalendarEvent(id: string, updates: Partial<CalendarEvent>): Promise<CalendarEvent> {
+  return request<CalendarEvent>(`/calendar/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(updates),
+  });
+}
+export async function deleteCalendarEvent(id: string): Promise<void> {
+  await request(`/calendar/${id}`, { method: 'DELETE' });
 }
