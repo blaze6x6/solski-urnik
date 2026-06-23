@@ -10,8 +10,8 @@ router.use(authMiddleware);
 router.get('/', async (req, res) => {
   try {
     const year = await queryOne<{
-      start_date: Date;
-      end_date: Date;
+      start_date: string;
+      end_date: string;
     }>('SELECT start_date, end_date FROM school_year WHERE id = 1');
 
     if (!year) {
@@ -22,8 +22,8 @@ router.get('/', async (req, res) => {
     }
 
     res.json({
-      startDate: year.start_date.toISOString().split('T')[0],
-      endDate: year.end_date.toISOString().split('T')[0],
+      startDate: year.start_date,
+      endDate: year.end_date,
     });
   } catch (error) {
     console.error('Get school year error:', error);
