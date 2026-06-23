@@ -19,6 +19,7 @@ const EVENT_COLORS = [
 
 const RECURRENCE_OPTIONS: { value: Recurrence; label: string }[] = [
   { value: 'none', label: 'Enkratno' },
+  { value: 'range', label: 'Razpon datumov' },
   { value: 'daily', label: 'Vsak dan' },
   { value: 'weekly', label: 'Vsak teden' },
   { value: 'biweekly', label: 'Vsak drugi teden' },
@@ -31,6 +32,7 @@ const recurrenceLabel = (r: Recurrence) =>
 
 interface FormState {
   date: string;
+  endDate: string;
   title: string;
   color: string;
   classIds: string[];
@@ -38,9 +40,9 @@ interface FormState {
   endTime: string;
   recurrence: Recurrence;
 }
-
 const emptyForm = (): FormState => ({
   date: format(new Date(), 'yyyy-MM-dd'),
+  endDate: '',
   title: '',
   color: EVENT_COLORS[4].value,
   classIds: [],
@@ -75,6 +77,8 @@ export default function EventsPage() {
 
   const validate = () => {
     if (!form.title.trim() || !form.date || !form.startTime || !form.endTime) return false;
+    if (form.recurrence === 'range' && !form.endDate) { alert('Razpon zahteva končni datum.'); return false; }
+    if (form.recurrence === 'range' && form.endDate < form.date) { alert('Končni datum mora biti po začetnem.'); return false; }
     if (form.startTime >= form.endTime) {
       alert('Ura začetka mora biti pred uro konca.');
       return false;
@@ -86,18 +90,23 @@ export default function EventsPage() {
     if (!validate()) return;
     setSaving(true);
     try {
-      await api.createEvent({ ...form });
+      await api.createEvent({
+        ...form,
+        endDate: form.recurrence === 'range' ? form.endDate : undefined,
+      });
       setForm(emptyForm());
       setShowForm(false);
       refresh();
     } finally { setSaving(false); }
   };
-
   const handleUpdate = async (id: string) => {
     if (!validate()) return;
     setSaving(true);
     try {
-      await api.updateEvent(id, { ...form });
+      await api.updateEvent(id, {
+        ...form,
+        endDate: form.recurrence === 'range' ? form.endDate : undefined,
+      });
       setEditingId(null);
       refresh();
     } finally { setSaving(false); }
@@ -114,6 +123,7 @@ export default function EventsPage() {
     setEditingId(e.id);
     setForm({
       date: e.date,
+      endDate: e.endDate || '',
       title: e.title,
       color: e.color,
       classIds: e.classIds,
@@ -137,10 +147,10 @@ export default function EventsPage() {
   /* ---- shared form fields ---- */
   const renderFormFields = () => (
     <>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className={`grid gap-4 ${form.recurrence === 'range' ? 'grid-cols-1 md:grid-cols-3' : 'grid-cols-1 md:grid-cols-2'}`}>
         <div>
           <label className="block text-sm font-medium text-gray-600 mb-1">
-            {form.recurrence === 'none' ? 'Datum' : 'Datum začetka'}
+            {form.recurrence === 'range' ? 'Od' : form.recurrence === 'none' ? 'Datum' : 'Datum začetka'}
           </label>
           <input
             type="date"
@@ -149,6 +159,17 @@ export default function EventsPage() {
             className="w-full px-3 py-2 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500"
           />
         </div>
+        {form.recurrence === 'range' && (
+          <div>
+            <label className="block text-sm font-medium text-gray-600 mb-1">Do</label>
+            <input
+              type="date"
+              value={form.endDate}
+              onChange={e => setForm({ ...form, endDate: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+        )}
         <div>
           <label className="block text-sm font-medium text-gray-600 mb-1">Naziv dogodka</label>
           <input
@@ -323,7 +344,9 @@ export default function EventsPage() {
                             <span>
                               {event.recurrence === 'none'
                                 ? format(parseISO(event.date), 'EEEE, d. MMMM yyyy', { locale: sl })
-                                : `Od ${format(parseISO(event.date), 'd. M. yyyy')}`
+                                : event.recurrence === 'range' && event.endDate
+                                  ? `${format(parseISO(event.date), 'd. M. yyyy')} – ${format(parseISO(event.endDate), 'd. M. yyyy')}`
+                                  : `Od ${format(parseISO(event.date), 'd. M. yyyy')}`
                               }
                             </span>
                             <span className="text-gray-300">•</span>
