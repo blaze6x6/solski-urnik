@@ -9,6 +9,7 @@ router.use(authMiddleware);
 interface EventRow {
   id: string;
   event_date: Date;
+  end_date: Date | null;
   title: string;
   color: string;
   class_ids: string[];
@@ -20,6 +21,7 @@ function mapEvent(e: EventRow) {
   return {
     id: e.id,
     date: e.event_date.toISOString().split('T')[0],
+    endDate: e.end_date ? e.end_date.toISOString().split('T')[0] : undefined,
     title: e.title,
     color: e.color,
     classIds: e.class_ids || [],
@@ -31,6 +33,8 @@ function mapEvent(e: EventRow) {
 function recurrenceWhere(dateParam: string): string {
   const d = `${dateParam}::date`;
   return `(
+    (recurrence = 'range' AND event_date <= ${d} AND end_date >= ${d})
+    OR
     ((recurrence IS NULL OR recurrence = 'none' OR recurrence = '') AND event_date = ${d})
     OR
     (recurrence = 'daily'     AND event_date <= ${d})
@@ -50,13 +54,13 @@ function recurrenceWhere(dateParam: string): string {
                               AND EXTRACT(DAY FROM event_date) = EXTRACT(DAY FROM ${d}))
   )`;
 }
-const RETURNING = `RETURNING id, event_date, title, color, class_ids, start_time::text, end_time::text, recurrence`;
+const RETURNING = `RETURNING id, event_date, end_date, title, color, class_ids, start_time::text, end_time::text, recurrence`;
 // ----- routes -----
 // Get all events (admin list)
 router.get('/', async (_req, res) => {
   try {
     const events = await query<EventRow>(
-      `SELECT id, event_date, title, color, class_ids, start_time::text, end_time::text, recurrence
+      `SELECT id, event_date, end_date, title, color, class_ids, start_time::text, end_time::text, recurrence
        FROM day_events
        ORDER BY event_date, start_time`
     );
@@ -73,8 +77,8 @@ router.get('/time-events', async (req, res) => {
     if (!classId || !date) {
       return res.status(400).json({ error: 'Razred in datum sta obvezna' });
     }
-        const timeEventsSql = `
-      SELECT id, event_date, title, color, class_ids, start_time::text, end_time::text, recurrence
+    const timeEventsSql = `
+      SELECT id, event_date, end_date, title, color, class_ids, start_time::text, end_time::text, recurrence
       FROM day_events
       WHERE start_time IS NOT NULL
         AND end_time IS NOT NULL
@@ -93,18 +97,21 @@ router.get('/time-events', async (req, res) => {
 // Create event
 router.post('/', adminMiddleware, async (req, res) => {
   try {
-    const { date, title, color, classIds, startTime, endTime, recurrence } = req.body;
+    const { date, endDate, title, color, classIds, startTime, endTime, recurrence } = req.body;
     if (!date || !title || !color || !startTime || !endTime) {
       return res.status(400).json({ error: 'Datum, naziv, barva, začetek in konec so obvezni' });
+    }
+    if (recurrence === 'range' && !endDate) {
+      return res.status(400).json({ error: 'Razpon zahteva končni datum' });
     }
     if (startTime >= endTime) {
       return res.status(400).json({ error: 'Ura začetka mora biti pred uro konca' });
     }
     const event = await queryOne<EventRow>(
-      `INSERT INTO day_events (event_date, title, color, class_ids, is_all_day, start_time, end_time, recurrence)
-       VALUES ($1, $2, $3, $4, false, $5, $6, $7)
+      `INSERT INTO day_events (event_date, end_date, title, color, class_ids, is_all_day, start_time, end_time, recurrence)
+       VALUES ($1, $2, $3, $4, $5, false, $6, $7, $8)
        ${RETURNING}`,
-      [date, title, color, classIds || [], startTime, endTime, recurrence || 'none']
+      [date, endDate || null, title, color, classIds || [], startTime, endTime, recurrence || 'none']
     );
     res.status(201).json(mapEvent(event!));
     const recLabels: Record<string, string> = {
@@ -128,23 +135,24 @@ router.post('/', adminMiddleware, async (req, res) => {
 router.put('/:id', adminMiddleware, async (req, res) => {
   try {
     const { id } = req.params;
-    const { date, title, color, classIds, startTime, endTime, recurrence } = req.body;
+    const { date, endDate, title, color, classIds, startTime, endTime, recurrence } = req.body;
     if (startTime && endTime && startTime >= endTime) {
       return res.status(400).json({ error: 'Ura začetka mora biti pred uro konca' });
     }
     const event = await queryOne<EventRow>(
       `UPDATE day_events SET
         event_date = COALESCE($1, event_date),
-        title      = COALESCE($2, title),
-        color      = COALESCE($3, color),
-        class_ids  = COALESCE($4, class_ids),
-        start_time = COALESCE($5, start_time),
-        end_time   = COALESCE($6, end_time),
-        recurrence = COALESCE($7, recurrence),
+        end_date   = $2,
+        title      = COALESCE($3, title),
+        color      = COALESCE($4, color),
+        class_ids  = COALESCE($5, class_ids),
+        start_time = COALESCE($6, start_time),
+        end_time   = COALESCE($7, end_time),
+        recurrence = COALESCE($8, recurrence),
         is_all_day = false
-       WHERE id = $8
+       WHERE id = $9
        ${RETURNING}`,
-      [date || null, title || null, color || null, classIds ?? null,
+      [date || null, endDate || null, title || null, color || null, classIds ?? null,
        startTime || null, endTime || null, recurrence || null, id]
     );
     if (!event) {
