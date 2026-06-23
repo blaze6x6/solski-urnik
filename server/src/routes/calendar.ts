@@ -7,8 +7,8 @@ interface CalRow {
   id: string;
   title: string;
   color: string;
-  event_date: Date;
-  end_date: Date | null;
+  event_date: string;
+  end_date: string | null;
   start_time: string | null;
   end_time: string | null;
   recurrence: string;
@@ -20,8 +20,8 @@ function mapCal(r: CalRow) {
     id: r.id,
     title: r.title,
     color: r.color,
-    date: r.event_date.toISOString().split('T')[0],
-    endDate: r.end_date ? r.end_date.toISOString().split('T')[0] : undefined,
+    date: r.event_date,
+    endDate: r.end_date || undefined,
     startTime: r.start_time?.substring(0, 5) || '00:00',
     endTime: r.end_time?.substring(0, 5) || '23:59',
     recurrence: r.recurrence || 'none',
