@@ -1,5 +1,7 @@
 import pg from 'pg';
 
+pg.types.setTypeParser(1082, (val: string) => val);  // 1082 = DATE OID
+
 const pool = new pg.Pool({
   host: process.env.DB_HOST || 'localhost',
   port: parseInt(process.env.DB_PORT || '5432'),
