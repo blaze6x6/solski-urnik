@@ -38,7 +38,7 @@ router.get('/student/:studentId', async (req: AuthRequest, res) => {
     res.json(notes.map(n => ({
       id: n.id,
       studentId: n.student_id,
-      date: n.note_date.toISOString().split('T')[0],
+      date: n.note_date,
       content: n.content,
       createdAt: n.created_at.toISOString(),
     })));
