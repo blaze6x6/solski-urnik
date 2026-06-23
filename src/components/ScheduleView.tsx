@@ -6,6 +6,7 @@ import { sl } from 'date-fns/locale';
 import { ChevronLeft, ChevronRight, Calendar, Star, Coffee, Umbrella, Type, FileDown } from 'lucide-react';
 import { toPng } from 'html-to-image';
 import { jsPDF } from 'jspdf';
+import { getSlovenianHolidays } from '../holidays';
 
 const DAYS_SHORT = ['Pon', 'Tor', 'Sre', 'Čet', 'Pet'];
 
@@ -31,6 +32,13 @@ export default function ScheduleView({ classId, className, title }: Props) {
 
   const weekStart = startOfWeek(currentDate, { weekStartsOn: 1 });
   const weekDates = Array.from({ length: 5 }, (_, i) => addDays(weekStart, i));
+  // Holidays for this week
+  const holidays = useMemo(() => {
+    const years = new Set(weekDates.map(d => d.getFullYear()));
+    const map = new Map<string, string>();
+    years.forEach(y => getSlovenianHolidays(y).forEach((v, k) => map.set(k, v)));
+    return map;
+  }, [weekStart.toISOString()]);
 
   const exportPdf = useCallback(async () => {
     const el = scheduleRef.current;
@@ -270,9 +278,11 @@ export default function ScheduleView({ classId, className, title }: Props) {
                       Ura
                     </th>
                     {weekDates.map((date, i) => {
-                      const isToday = format(date, 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd');
+                      const dateStr = format(date, 'yyyy-MM-dd');
+                      const isToday = dateStr === format(new Date(), 'yyyy-MM-dd');
                       const inSchoolYear = isDayInSchoolYear[i];
                       const events = timeEvents[i] || [];
+                      const holiday = holidays.get(dateStr);
                       return (
                         <th
                           key={i}
@@ -284,7 +294,12 @@ export default function ScheduleView({ classId, className, title }: Props) {
                           <div className={`text-xs ${isToday ? 'text-blue-100' : 'text-gray-400'}`}>
                             {format(date, 'd. M.')}
                           </div>
-                          {!inSchoolYear && (
+                          {holiday && (
+                            <div className={`mt-0.5 text-[9px] font-bold leading-tight ${isToday ? 'text-red-200' : 'text-red-500'}`}>
+                              {holiday}
+                            </div>
+                          )}
+                          {!inSchoolYear && !holiday && (
                             <div className="mt-1 text-[10px] text-gray-400">Počitnice</div>
                           )}
                           {events.length > 0 && inSchoolYear && (
