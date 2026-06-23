@@ -41,6 +41,60 @@ const emptyForm = (): FormState => ({
   reminders: [],
 });
 const DAYS_SL = ['Pon', 'Tor', 'Sre', 'Čet', 'Pet', 'Sob', 'Ned'];
+
+// Slovenian public holidays (fixed dates + Easter-based)
+function getSlovenianHolidays(year: number): Map<string, string> {
+  const holidays = new Map<string, string>();
+  // Fixed holidays
+  holidays.set(`${year}-01-01`, 'Novo leto');
+  holidays.set(`${year}-01-02`, 'Novo leto');
+  holidays.set(`${year}-02-08`, 'Prešernov dan');
+  holidays.set(`${year}-04-27`, 'Dan upora proti okupatorju');
+  holidays.set(`${year}-05-01`, 'Praznik dela');
+  holidays.set(`${year}-05-02`, 'Praznik dela');
+  holidays.set(`${year}-06-25`, 'Dan državnosti');
+  holidays.set(`${year}-08-15`, 'Marijino vnebovzetje');
+  holidays.set(`${year}-10-31`, 'Dan reformacije');
+  holidays.set(`${year}-11-01`, 'Dan spomina na mrtve');
+  holidays.set(`${year}-12-25`, 'Božič');
+  holidays.set(`${year}-12-26`, 'Dan samostojnosti in enotnosti');
+  // Easter (Computus algorithm)
+  const a = year % 19;
+  const b = Math.floor(year / 100);
+  const c = year % 100;
+  const d = Math.floor(b / 4);
+  const e = b % 4;
+  const f = Math.floor((b + 8) / 25);
+  const g = Math.floor((b - f + 1) / 3);
+  const h = (19 * a + b - d - g + 15) % 30;
+  const i = Math.floor(c / 4);
+  const k = c % 4;
+  const l = (32 + 2 * e + 2 * i - h - k) % 7;
+  const m = Math.floor((a + 11 * h + 22 * l) / 451);
+  const month = Math.floor((h + l - 7 * m + 114) / 31);
+  const day = ((h + l - 7 * m + 114) % 31) + 1;
+  const easter = new Date(year, month - 1, day);
+  const easterMon = new Date(easter);
+  easterMon.setDate(easter.getDate() + 1);
+  const pad = (n: number) => n.toString().padStart(2, '0');
+  holidays.set(
+    `${year}-${pad(easter.getMonth() + 1)}-${pad(easter.getDate())}`,
+    'Velika noč'
+  );
+  holidays.set(
+    `${year}-${pad(easterMon.getMonth() + 1)}-${pad(easterMon.getDate())}`,
+    'Velikonočni ponedeljek'
+  );
+  // Whit Sunday (Binkoštna nedelja) = Easter + 49
+  const whit = new Date(easter);
+  whit.setDate(easter.getDate() + 49);
+  holidays.set(
+    `${year}-${pad(whit.getMonth() + 1)}-${pad(whit.getDate())}`,
+    'Binkoštna nedelja'
+  );
+  return holidays;
+}
+
 export default function CalendarPage() {
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [loading, setLoading] = useState(true);
@@ -132,6 +186,18 @@ export default function CalendarPage() {
     setForm({ title: e.title, color: e.color, date: e.date, endDate: e.endDate || '', startTime: e.startTime, endTime: e.endTime, recurrence: e.recurrence, note: e.note || '', reminders: e.reminders || [] });
   };
   const today = format(new Date(), 'yyyy-MM-dd');
+
+  // Holidays for displayed year(s)
+  const holidays = useMemo(() => {
+    const year = currentMonth.getFullYear();
+    const map = getSlovenianHolidays(year);
+    // Also get next/prev year in case grid spans year boundary
+    const prev = getSlovenianHolidays(year - 1);
+    const next = getSlovenianHolidays(year + 1);
+    prev.forEach((v, k) => map.set(k, v));
+    next.forEach((v, k) => map.set(k, v));
+    return map;
+  }, [currentMonth]);
   return (
     <div>
       <div className="flex items-center justify-between mb-6 flex-wrap gap-4">
@@ -167,8 +233,8 @@ export default function CalendarPage() {
           </div>
           {/* Day headers */}
           <div className="grid grid-cols-7 border-b border-gray-100">
-            {DAYS_SL.map(d => (
-              <div key={d} className="p-2 text-center text-xs font-semibold text-gray-500">{d}</div>
+            {DAYS_SL.map((d, idx) => (
+              <div key={d} className={`p-2 text-center text-xs font-semibold ${idx >= 5 ? 'text-red-500' : 'text-gray-500'}`}>{d}</div>
             ))}
           </div>
           {/* Day cells */}
@@ -185,6 +251,8 @@ export default function CalendarPage() {
                 const isSelected = dateStr === selectedDate;
                 const count = eventCountForDay(date);
                 const isWeekend = date.getDay() === 0 || date.getDay() === 6;
+                const holiday = holidays.get(dateStr);
+                const isHoliday = !!holiday;
                 return (
                   <div
                     key={i}
@@ -193,12 +261,23 @@ export default function CalendarPage() {
                       !inMonth ? 'bg-gray-50 opacity-40' :
                       isSelected ? 'bg-blue-100' :
                       isToday ? 'bg-blue-50' :
-                      isWeekend ? 'bg-gray-50' : 'hover:bg-gray-50'
+                      isHoliday ? 'bg-red-50' :
+                      isWeekend ? 'bg-red-50/50' : 'hover:bg-gray-50'
                     }`}
+                    title={holiday || undefined}
                   >
-                    <div className={`text-sm font-medium ${isToday ? 'text-blue-600 font-bold' : inMonth ? 'text-gray-700' : 'text-gray-400'}`}>
+                    <div className={`text-sm font-medium ${
+                      isToday ? 'text-blue-600 font-bold' :
+                      !inMonth ? 'text-gray-400' :
+                      isHoliday ? 'text-red-600 font-bold' :
+                      isWeekend ? 'text-red-500' :
+                      'text-gray-700'
+                    }`}>
                       {format(date, 'd')}
                     </div>
+                    {isHoliday && inMonth && (
+                      <div className="text-[8px] text-red-500 leading-tight truncate">{holiday}</div>
+                    )}
                     {count > 0 && (
                       <div className="mt-0.5 flex gap-0.5 flex-wrap">
                         {Array.from({ length: Math.min(count, 3) }).map((_, j) => (
@@ -219,6 +298,9 @@ export default function CalendarPage() {
             <h3 className="font-semibold text-gray-800 text-sm">
               {selectedDate ? format(parseISO(selectedDate), 'EEEE, d. MMMM yyyy', { locale: sl }) : 'Izberite dan'}
             </h3>
+            {selectedDate && holidays.get(selectedDate) && (
+              <p className="text-xs text-red-600 font-medium mt-0.5">🇸🇮 {holidays.get(selectedDate)}</p>
+            )}
           </div>
           {!selectedDate ? (
             <div className="p-6 text-center text-gray-400 text-sm">Kliknite na dan v koledarju.</div>
@@ -421,15 +503,14 @@ function EventForm({ form, setForm, saving, onSave, onCancel, compact }: {
           </div>
         </>
       )}
-      <div className="flex items-center gap-3">
-        <div className="flex gap-1">
-          {EVENT_COLORS.map(c => (
-            <button key={c} onClick={() => setForm({ ...form, color: c })} className={`w-6 h-6 rounded-full transition ${form.color === c ? 'ring-2 ring-offset-1 ring-gray-400 scale-110' : 'hover:scale-110'}`} style={{ backgroundColor: c }} />
-          ))}
-        </div>
-        <div className="flex-1" />
-        <button onClick={onSave} disabled={saving} className="bg-green-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-green-700 transition flex items-center gap-1 text-sm disabled:opacity-50"><Save className="w-4 h-4" /> Shrani</button>
-        <button onClick={onCancel} className="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg font-medium hover:bg-gray-300 transition flex items-center gap-1 text-sm"><X className="w-4 h-4" /> Prekliči</button>
+      <div className="flex gap-1 flex-wrap">
+        {EVENT_COLORS.map(c => (
+          <button key={c} onClick={() => setForm({ ...form, color: c })} className={`w-6 h-6 rounded-full transition ${form.color === c ? 'ring-2 ring-offset-1 ring-gray-400 scale-110' : 'hover:scale-110'}`} style={{ backgroundColor: c }} />
+        ))}
+      </div>
+      <div className="flex flex-col gap-2">
+        <button onClick={onSave} disabled={saving} className="w-full bg-green-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-green-700 transition flex items-center justify-center gap-1 text-sm disabled:opacity-50"><Save className="w-4 h-4" /> Shrani</button>
+        <button onClick={onCancel} className="w-full bg-gray-200 text-gray-700 px-4 py-2 rounded-lg font-medium hover:bg-gray-300 transition flex items-center justify-center gap-1 text-sm"><X className="w-4 h-4" /> Prekliči</button>
       </div>
     </div>
   );
