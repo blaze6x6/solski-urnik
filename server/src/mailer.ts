@@ -102,8 +102,8 @@ export async function sendEmailWithCalendar(
       };
       const rule = freqMap[calendarEvent.recurrence];
       if (rule) {
-        const schoolYear = await queryOne<{ end_date: Date }>('SELECT end_date FROM school_year WHERE id = 1');
-        const until = schoolYear ? schoolYear.end_date : new Date(startDate.getFullYear() + 1, 5, 30);
+        const schoolYear = await queryOne<{ end_date: string }>('SELECT end_date FROM school_year WHERE id = 1');
+        const until = schoolYear ? new Date(schoolYear.end_date + 'T23:59:59') : new Date(startDate.getFullYear() + 1, 5, 30);
         event.repeating({ freq: rule.freq, interval: rule.interval, until });
       }
     }
