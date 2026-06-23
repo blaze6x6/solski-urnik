@@ -8,8 +8,8 @@ router.use(authMiddleware);
 // ----- helpers -----
 interface EventRow {
   id: string;
-  event_date: Date;
-  end_date: Date | null;
+  event_date: string;
+  end_date: string | null;
   title: string;
   color: string;
   class_ids: string[];
@@ -20,8 +20,8 @@ interface EventRow {
 function mapEvent(e: EventRow) {
   return {
     id: e.id,
-    date: e.event_date.toISOString().split('T')[0],
-    endDate: e.end_date ? e.end_date.toISOString().split('T')[0] : undefined,
+    date: e.event_date,
+    endDate: e.end_date || undefined,
     title: e.title,
     color: e.color,
     classIds: e.class_ids || [],
