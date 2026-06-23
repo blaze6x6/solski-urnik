@@ -8,6 +8,7 @@ services:
       POSTGRES_DB: solski_urnik
       POSTGRES_USER: solski_admin
       POSTGRES_PASSWORD: ${DB_PASSWORD:-SolskiUrnik2025!}
+      TZ: Europe/Ljubljana
     ports:
       - "5432:5432"
     volumes:
@@ -43,6 +44,7 @@ services:
       DB_PASSWORD: ${DB_PASSWORD:-SolskiUrnik2025!}
       JWT_SECRET: ${JWT_SECRET:-solski-urnik-jwt-secret-change-me}
       PORT: "3001"
+      TZ: Europe/Ljubljana
     ports:
       - "3001:3001"
     depends_on:
