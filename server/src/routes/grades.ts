@@ -11,7 +11,7 @@ interface GradeRow {
   subject_id: string;
   grade: number;
   type: string;
-  grade_date: Date;
+  grade_date: string;
   note: string | null;
   created_at: Date;
 }
@@ -22,7 +22,7 @@ function mapGrade(r: GradeRow) {
     subjectId: r.subject_id,
     grade: r.grade,
     type: r.type,
-    date: r.grade_date.toISOString().split('T')[0],
+    date: r.grade_date,
     note: r.note || undefined,
     createdAt: r.created_at.toISOString(),
   };
