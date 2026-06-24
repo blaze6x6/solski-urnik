@@ -75,9 +75,9 @@ export default function ScheduleView({ classId, className, title }: Props) {
     }
   }, [exporting, weekStart]);
 
-  // Live clock – update every 30 seconds
+  // Live clock – update every 15 seconds
   useEffect(() => {
-    const timer = setInterval(() => setNow(new Date()), 30_000);
+    const timer = setInterval(() => setNow(new Date()), 15_000);
     return () => clearInterval(timer);
   }, []);
 
@@ -177,17 +177,22 @@ export default function ScheduleView({ classId, className, title }: Props) {
     });
   };
 
+  // Check if today is visible in this week's grid
+  const todayStr = format(now, 'yyyy-MM-dd');
+  const todayDayIndex = weekDates.findIndex(d => format(d, 'yyyy-MM-dd') === todayStr);
+  const isTodayVisible = todayDayIndex >= 0;
   // Check if a given day + period is the currently active one
   const isActivePeriod = (day: number, period: Period): boolean => {
     if (period.isBreak) return false;
-    const todayStr = format(now, 'yyyy-MM-dd');
-    const cellDate = weekDates[day];
-    if (!cellDate) return false;
-    if (format(cellDate, 'yyyy-MM-dd') !== todayStr) return false;
+    if (!isTodayVisible || day !== todayDayIndex) return false;
     const nowMins = now.getHours() * 60 + now.getMinutes();
-    const start = toMinutes(period.startTime);
-    const end = toMinutes(period.endTime);
-    return nowMins >= start && nowMins < end;
+    return nowMins >= toMinutes(period.startTime) && nowMins < toMinutes(period.endTime);
+  };
+  // Check if a period is currently active (for the left column label, day-independent)
+  const isPeriodActiveNow = (period: Period): boolean => {
+    if (period.isBreak || !isTodayVisible) return false;
+    const nowMins = now.getHours() * 60 + now.getMinutes();
+    return nowMins >= toMinutes(period.startTime) && nowMins < toMinutes(period.endTime);
   };
 
   return (
@@ -314,11 +319,8 @@ export default function ScheduleView({ classId, className, title }: Props) {
                 </thead>
                 <tbody>
                   {periods.map(period => {
-                    const nowMins = now.getHours() * 60 + now.getMinutes();
-                    const periodActive = !period.isBreak
-                      && format(now, 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd')
-                      && nowMins >= toMinutes(period.startTime) && nowMins < toMinutes(period.endTime);
-
+                    {periods.map(period => {
+                    const periodActive = isPeriodActiveNow(period);
                     return (
                       <tr key={period.id} className={period.isBreak ? 'bg-amber-50/50' : 'hover:bg-gray-50'}>
                         <td className={`p-2 text-center border-b border-r border-gray-100 ${periodActive ? 'bg-blue-100' : 'bg-gray-50'}`}>
