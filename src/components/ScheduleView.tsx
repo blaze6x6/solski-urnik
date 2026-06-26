@@ -319,7 +319,6 @@ export default function ScheduleView({ classId, className, title }: Props) {
                 </thead>
                 <tbody>
                   {periods.map(period => {
-                    {periods.map(period => {
                     const periodActive = isPeriodActiveNow(period);
                     return (
                       <tr key={period.id} className={period.isBreak ? 'bg-amber-50/50' : 'hover:bg-gray-50'}>
