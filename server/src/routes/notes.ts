@@ -3,16 +3,12 @@ import { query, queryOne, execute } from '../db.js';
 import { authMiddleware, adminMiddleware, AuthRequest } from '../auth.js';
 import { sendEmail } from '../mailer.js';
 import { notifyUsersInApp } from '../notify.js';
-
 const router = Router();
-
 router.use(authMiddleware);
-
 // Get notes for a student (admin or linked parent)
 router.get('/student/:studentId', async (req: AuthRequest, res) => {
   try {
     const { studentId } = req.params;
-
     // Check if user is admin or linked parent
     if (req.user!.role !== 'admin') {
       const link = await queryOne(
@@ -23,22 +19,20 @@ router.get('/student/:studentId', async (req: AuthRequest, res) => {
         return res.status(403).json({ error: 'Nimate dostopa do beležk tega otroka' });
       }
     }
-
     const notes = await query<{
       id: string;
       student_id: string;
-      note_date: Date;
+      note_date: string;    // string after pg.types fix
       content: string;
       created_at: Date;
     }>(
       'SELECT id, student_id, note_date, content, created_at FROM student_notes WHERE student_id = $1 ORDER BY note_date DESC, created_at DESC',
       [studentId]
     );
-
     res.json(notes.map(n => ({
       id: n.id,
       studentId: n.student_id,
-      date: n.note_date,
+      date: n.note_date,                    // ✅ "n" iz .map(n => ...)
       content: n.content,
       createdAt: n.created_at.toISOString(),
     })));
@@ -47,31 +41,27 @@ router.get('/student/:studentId', async (req: AuthRequest, res) => {
     res.status(500).json({ error: 'Napaka pri pridobivanju beležk' });
   }
 });
-
 // Create note (admin only)
 router.post('/', adminMiddleware, async (req, res) => {
   try {
     const { studentId, date, content } = req.body;
-
     if (!studentId || !date || !content) {
       return res.status(400).json({ error: 'Učenec, datum in vsebina so obvezni' });
     }
-
     const note = await queryOne<{
       id: string;
       student_id: string;
-      note_date: Date;
+      note_date: string;    // string after pg.types fix
       content: string;
       created_at: Date;
     }>(
       'INSERT INTO student_notes (student_id, note_date, content) VALUES ($1, $2, $3) RETURNING *',
       [studentId, date, content]
     );
-
     res.status(201).json({
       id: note!.id,
       studentId: note!.student_id,
-      date: n.note_date,
+      date: note!.note_date,                // ✅ "note!" ne "n."
       content: note!.content,
       createdAt: note!.created_at.toISOString(),
     });
@@ -110,17 +100,15 @@ router.post('/', adminMiddleware, async (req, res) => {
     res.status(500).json({ error: 'Napaka pri ustvarjanju beležke' });
   }
 });
-
 // Update note (admin only)
 router.put('/:id', adminMiddleware, async (req, res) => {
   try {
     const { id } = req.params;
     const { date, content } = req.body;
-
     const note = await queryOne<{
       id: string;
       student_id: string;
-      note_date: Date;
+      note_date: string;    // string after pg.types fix
       content: string;
       created_at: Date;
     }>(
@@ -131,15 +119,13 @@ router.put('/:id', adminMiddleware, async (req, res) => {
        RETURNING *`,
       [date || null, content || null, id]
     );
-
     if (!note) {
       return res.status(404).json({ error: 'Beležka ne obstaja' });
     }
-
     res.json({
       id: note.id,
       studentId: note.student_id,
-      date: n.note_date,
+      date: note.note_date,                 // ✅ "note." ne "n."
       content: note.content,
       createdAt: note.created_at.toISOString(),
     });
@@ -148,7 +134,6 @@ router.put('/:id', adminMiddleware, async (req, res) => {
     res.status(500).json({ error: 'Napaka pri posodabljanju beležke' });
   }
 });
-
 // Delete note (admin only)
 router.delete('/:id', adminMiddleware, async (req, res) => {
   try {
@@ -158,12 +143,10 @@ router.delete('/:id', adminMiddleware, async (req, res) => {
     if (count === 0) {
       return res.status(404).json({ error: 'Beležka ne obstaja' });
     }
-
     res.json({ success: true });
   } catch (error) {
     console.error('Delete note error:', error);
     res.status(500).json({ error: 'Napaka pri brisanju beležke' });
   }
 });
-
 export default router;
