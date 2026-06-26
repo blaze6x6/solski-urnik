@@ -32,10 +32,12 @@ interface Props {
 
 const adminMenuItems: { page: Page; label: string; icon: React.ReactNode }[] = [
   { page: 'dashboard', label: 'Nadzorna plošča', icon: <LayoutDashboard className="w-5 h-5" /> },
-  { page: 'class-schedule', label: 'Urnik razreda', icon: <Calendar className="w-5 h-5" /> },
+  { page: 'bus', label: 'Vozni red', icon: <Bus className="w-5 h-5" /> },
   { page: 'events', label: 'Dogodki', icon: <CalendarCheck className="w-5 h-5" /> },
   { page: 'notes', label: 'Beležke', icon: <StickyNote className="w-5 h-5" /> },
   { page: 'grades', label: 'Ocene', icon: <Award className="w-5 h-5" /> },
+  { page: 'calendar', label: 'Koledar', icon: <CalendarIcon className="w-5 h-5" /> },
+  { page: 'class-schedule', label: 'Urnik razreda', icon: <Calendar className="w-5 h-5" /> },
   { page: 'students', label: 'Učenci', icon: <GraduationCap className="w-5 h-5" /> },
   { page: 'subjects', label: 'Predmeti', icon: <BookOpen className="w-5 h-5" /> },
   { page: 'classes', label: 'Razredi', icon: <School className="w-5 h-5" /> },
@@ -43,17 +45,15 @@ const adminMenuItems: { page: Page; label: string; icon: React.ReactNode }[] = [
   { page: 'parents', label: 'Starši & Otroci', icon: <Link className="w-5 h-5" /> },
   { page: 'periods', label: 'Šolske ure', icon: <Clock className="w-5 h-5" /> },
   { page: 'school-year', label: 'Šolsko leto', icon: <CalendarDays className="w-5 h-5" /> },
-  { page: 'bus', label: 'Vozni red', icon: <Bus className="w-5 h-5" /> },
   { page: 'email-settings', label: 'Email obvestila', icon: <Mail className="w-5 h-5" /> },
-  { page: 'calendar', label: 'Koledar', icon: <CalendarIcon className="w-5 h-5" /> },
 ];
 
 const parentMenuItems: { page: Page; label: string; icon: React.ReactNode }[] = [
   { page: 'dashboard', label: 'Urnik otrok', icon: <Calendar className="w-5 h-5" /> },
-  { page: 'grades', label: 'Ocene', icon: <Award className="w-5 h-5" /> },
   { page: 'bus', label: 'Vozni red', icon: <Bus className="w-5 h-5" /> },
-  { page: 'email-settings', label: 'Email obvestila', icon: <Mail className="w-5 h-5" /> },
+  { page: 'grades', label: 'Ocene', icon: <Award className="w-5 h-5" /> },
   { page: 'calendar', label: 'Koledar', icon: <CalendarIcon className="w-5 h-5" /> },
+  { page: 'email-settings', label: 'Email obvestila', icon: <Mail className="w-5 h-5" /> },
 ];
 
 export default function Sidebar({ user, currentPage, onNavigate, onLogout }: Props) {
