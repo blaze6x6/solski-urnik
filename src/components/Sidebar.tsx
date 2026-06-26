@@ -114,7 +114,9 @@ export default function Sidebar({ user, currentPage, onNavigate, onLogout }: Pro
   return (
     <>
       {/* Mobile top bar */}
-      <div className="lg:hidden fixed top-0 left-0 right-0 z-40 bg-blue-800 flex items-center h-14 px-4 shadow-lg">
+      <div className="lg:hidden fixed top-0 left-0 right-0 z-40 bg-blue-800 flex items-center px-4 shadow-lg"
+        style={{ paddingTop: 'calc(0.5rem + env(safe-area-inset-top, 0px))', paddingBottom: '0.5rem', paddingLeft: 'calc(1rem + env(safe-area-inset-left, 0px))', paddingRight: 'calc(1rem + env(safe-area-inset-right, 0px))' }}
+      >
         <button
           onClick={() => setMobileOpen(!mobileOpen)}
           className="text-white p-1.5 rounded-lg hover:bg-blue-700 transition"
@@ -140,6 +142,7 @@ export default function Sidebar({ user, currentPage, onNavigate, onLogout }: Pro
           lg:translate-x-0
           ${mobileOpen ? 'translate-x-0' : '-translate-x-full'}
         `}
+        style={{ paddingTop: 'env(safe-area-inset-top, 0px)', paddingBottom: 'env(safe-area-inset-bottom, 0px)', paddingLeft: 'env(safe-area-inset-left, 0px)' }}
       >
         {sidebarContent}
       </aside>
