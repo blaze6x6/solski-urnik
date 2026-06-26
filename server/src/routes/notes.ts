@@ -71,7 +71,7 @@ router.post('/', adminMiddleware, async (req, res) => {
     res.status(201).json({
       id: note!.id,
       studentId: note!.student_id,
-      date: note!.note_date.toISOString().split('T')[0],
+      date: n.note_date,
       content: note!.content,
       createdAt: note!.created_at.toISOString(),
     });
@@ -139,7 +139,7 @@ router.put('/:id', adminMiddleware, async (req, res) => {
     res.json({
       id: note.id,
       studentId: note.student_id,
-      date: note.note_date.toISOString().split('T')[0],
+      date: n.note_date,
       content: note.content,
       createdAt: note.created_at.toISOString(),
     });
