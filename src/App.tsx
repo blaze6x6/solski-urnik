@@ -102,13 +102,19 @@ export default function App() {
         onNavigate={setCurrentPage}
         onLogout={handleLogout}
       />
-      <main className="pt-14 lg:pt-0 lg:ml-64 min-h-screen flex flex-col">
-        <div className="p-4 lg:p-8 flex-1">
+      <main className="lg:pt-0 lg:ml-64 min-h-screen flex flex-col"
+        style={{ paddingTop: 'calc(3.5rem + env(safe-area-inset-top, 0px))' }}
+      >
+        <div className="p-4 lg:p-8 flex-1"
+          style={{ paddingRight: 'calc(1rem + env(safe-area-inset-right, 0px))' }}
+        >
           <div className="max-w-6xl mx-auto">
             {renderPage()}
           </div>
         </div>
-        <footer className="p-4 text-center text-xs text-gray-400">
+        <footer className="p-4 text-center text-xs text-gray-400"
+          style={{ paddingBottom: 'calc(1rem + env(safe-area-inset-bottom, 0px))' }}
+        >
           Created by Matjaž Tekavec
         </footer>
       </main>
