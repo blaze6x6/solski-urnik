@@ -1,8 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import * as api from '../api';
 import { SchoolClass, Subject, ScheduleEntry, Period, AfternoonEntry } from '../types';
-import { Calendar, X, School, Coffee, Plus, Trash2, Save } from 'lucide-react';
+import { Calendar, X, School, Coffee, Plus, Trash2, Save, FileText, Type } from 'lucide-react';
 import ScheduleView from './ScheduleView';
+import { jsPDF } from 'jspdf';
+import { toPng } from 'html-to-image';
 
 const DAYS = ['Ponedeljek', 'Torek', 'Sreda', 'Četrtek', 'Petek'];
 
@@ -17,6 +19,9 @@ export default function ClassSchedulePage() {
   const [editRoom, setEditRoom] = useState('');
   const [loading, setLoading] = useState(true);
   const [refreshKey, setRefreshKey] = useState(0);
+
+  const [showFullNames, setShowFullNames] = useState(false);
+  const scheduleRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     Promise.all([
@@ -34,7 +39,7 @@ export default function ClassSchedulePage() {
 
   useEffect(() => {
     if (selectedClassId) {
-      api.getScheduleForClass(selectedClassId).then(setEntries);
+      api.getScheduleForClass(selectedClassId).setEntries ? api.getScheduleForClass(selectedClassId).then(setEntries) : api.getScheduleForClass(selectedClassId).then(setEntries);
     }
   }, [selectedClassId, refreshKey]);
 
@@ -70,6 +75,27 @@ export default function ClassSchedulePage() {
     setRefreshKey(k => k + 1);
   };
 
+  const handleExportPDF = async () => {
+    const element = scheduleRef.current;
+    if (!element) return;
+
+    try {
+      const dataUrl = await toPng(element, { quality: 0.95, pixelRatio: 2 });
+      const pdf = new jsPDF('landscape', 'mm', 'a4');
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const img = new Image();
+      img.src = dataUrl;
+      
+      img.onload = () => {
+        const imgHeight = (img.height * pdfWidth) / img.width;
+        pdf.addImage(dataUrl, 'PNG', 0, 10, pdfWidth, imgHeight);
+        pdf.save(`urnik-${selectedClass?.name || 'razred'}.pdf`);
+      };
+    } catch (error) {
+      console.error('Napaka pri generiranju PDF-ja:', error);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
@@ -85,26 +111,62 @@ export default function ClassSchedulePage() {
     <div>
       <h1 className="text-2xl font-bold text-gray-800 mb-6">Urnik razreda</h1>
 
-      <div className="bg-white rounded-xl shadow-sm p-4 mb-6 flex items-center gap-4 flex-wrap">
-        <div className="flex items-center gap-2">
-          <School className="w-5 h-5 text-blue-600" />
-          <span className="font-medium text-gray-700">Razred:</span>
+      <div className="bg-white rounded-xl shadow-sm p-5 mb-6">
+        <div className="flex items-center justify-between flex-wrap gap-4">
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 bg-blue-600 rounded-full flex items-center justify-center text-white shadow-sm">
+              <School className="w-6 h-6" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-gray-500">Izberite razred</p>
+              <h2 className="text-lg font-bold text-gray-800">
+                {selectedClass ? selectedClass.name : 'Vsi razredi'}
+              </h2>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 flex-wrap">
+            {classes.map(c => (
+              <button
+                key={c.id}
+                onClick={() => { setSelectedClassId(c.id); setEditCell(null); }}
+                className={`px-4 py-2 rounded-lg font-semibold text-sm transition shadow-sm ${
+                  selectedClassId === c.id
+                    ? 'bg-blue-600 text-white shadow-blue-200'
+                    : 'bg-gray-50 text-gray-700 hover:bg-gray-100 border border-gray-200'
+                }`}
+              >
+                {c.name}
+              </button>
+            ))}
+          </div>
         </div>
-        <div className="flex gap-2 flex-wrap">
-          {classes.map(c => (
+
+        {selectedClassId && (
+          <div className="mt-4 pt-4 border-t border-gray-100 flex items-center justify-between flex-wrap gap-3">
+            {/* Gumb za preklop imena z enakim stilom in ikono */}
             <button
-              key={c.id}
-              onClick={() => { setSelectedClassId(c.id); setEditCell(null); }}
-              className={`px-4 py-2 rounded-lg font-medium text-sm transition ${
-                selectedClassId === c.id
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              onClick={() => setShowFullNames(!showFullNames)}
+              className={`px-3.5 py-2 rounded-lg text-sm font-medium transition flex items-center gap-2 shadow-sm border ${
+                showFullNames 
+                  ? 'bg-blue-50 text-blue-700 border-blue-200' 
+                  : 'bg-white text-gray-700 hover:bg-gray-50 border-gray-200'
               }`}
             >
-              {c.name}
+              <Type className="w-4 h-4 text-blue-600" />
+              <span>{showFullNames ? 'Polna imena predmetov' : 'Kratice predmetov'}</span>
             </button>
-          ))}
-        </div>
+
+            {/* Gumb za PDF z enakim stilom in ikono kot v Dashboard karticah */}
+            <button
+              onClick={handleExportPDF}
+              className="bg-white hover:bg-gray-50 text-gray-700 border border-gray-200 px-3.5 py-2 rounded-lg text-sm font-medium transition flex items-center gap-2 shadow-sm"
+            >
+              <FileText className="w-4 h-4 text-red-600" />
+              <span>Izvozi v PDF</span>
+            </button>
+          </div>
+        )}
       </div>
 
       {!selectedClassId ? (
@@ -171,12 +233,13 @@ export default function ClassSchedulePage() {
             </div>
           )}
 
-          <div className="bg-white rounded-xl shadow-sm overflow-hidden mb-6">
-            <div className="p-4 bg-blue-50 border-b border-blue-100">
-              <p className="text-sm text-blue-700 font-medium">
-                💡 Kliknite na celico za dodajanje ali urejanje predmeta. Odmori so označeni z ikono in niso klikabilni.
-              </p>
-            </div>
+          <div className="p-3 bg-blue-50 border border-blue-100 rounded-xl mb-4">
+            <p className="text-sm text-blue-700 font-medium">
+              💡 Kliknite na celico za dodajanje ali urejanje predmeta. Odmori so označeni z ikono in niso klikabilni.
+            </p>
+          </div>
+
+          <div ref={scheduleRef} className="bg-white rounded-xl shadow-sm overflow-hidden mb-6 p-2">
             <div className="overflow-x-auto">
               <table className="w-full border-collapse min-w-[700px]">
                 <thead>
@@ -228,8 +291,8 @@ export default function ClassSchedulePage() {
                                   borderLeft: `3px solid ${subject.color}`,
                                 }}
                               >
-                                <span className="font-bold text-sm" style={{ color: subject.color }}>
-                                  {subject.shortName}
+                                <span className={`font-bold ${showFullNames ? 'text-xs' : 'text-sm'}`} style={{ color: subject.color }}>
+                                  {showFullNames ? subject.name : subject.shortName}
                                 </span>
                                 {entry?.room && (
                                   <span className="text-[10px] text-gray-400">{entry.room}</span>
@@ -250,7 +313,6 @@ export default function ClassSchedulePage() {
             </div>
           </div>
 
-          {/* Afternoon activities editor */}
           <AfternoonEditor classId={selectedClassId} refreshKey={refreshKey} onRefresh={() => setRefreshKey(k => k + 1)} />
 
           <h3 className="text-lg font-semibold text-gray-800 mb-3 mt-6">Predogled z datumskim koledarjem</h3>
