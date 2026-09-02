@@ -244,7 +244,8 @@ export default function ClassSchedulePage() {
               <table className="w-full border-collapse min-w-[700px]">
                 <thead>
                   <tr className="bg-gray-50">
-                    <th className="p-3 text-left text-sm font-semibold text-gray-600 w-28 border-b border-r border-gray-200">Ura</th>
+                    {/* Popravljeno iz text-left v text-center za sredinsko poravnavo */}
+                    <th className="p-3 text-center text-sm font-semibold text-gray-600 w-28 border-b border-r border-gray-200">Ura</th>
                     {DAYS.map((day, i) => (
                       <th key={i} className="p-3 text-center text-sm font-semibold text-gray-700 border-b border-r border-gray-200">
                         {day}
@@ -255,7 +256,8 @@ export default function ClassSchedulePage() {
                 <tbody>
                   {periods.map(period => (
                     <tr key={period.id} className={period.isBreak ? 'bg-amber-50/50' : ''}>
-                      <td className="p-2 text-center border-b border-r border-gray-100 bg-gray-50">
+                      {/* Dodan text-center in align-middle za popolno sredinsko poravnavo ure */}
+                      <td className="p-2 text-center align-middle border-b border-r border-gray-100 bg-gray-50">
                         <div className="flex items-center justify-center gap-1">
                           {period.isBreak && <Coffee className="w-3 h-3 text-amber-600" />}
                           <span className={`text-sm font-bold ${period.isBreak ? 'text-amber-700' : 'text-gray-700'}`}>
