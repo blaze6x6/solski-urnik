@@ -49,9 +49,17 @@ export interface ScheduleEntry {
   room?: string;
 }
 
+export interface SchoolBreak {
+  id: string;
+  name: string;
+  startDate: string;
+  endDate: string;
+}
+
 export interface SchoolYear {
   startDate: string;
   endDate: string;
+  breaks?: SchoolBreak[];
 }
 
 export interface Period {
