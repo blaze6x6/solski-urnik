@@ -190,6 +190,7 @@ CREATE TABLE IF NOT EXISTS school_year (
     id INTEGER PRIMARY KEY DEFAULT 1 CHECK (id = 1),
     start_date DATE NOT NULL,
     end_date DATE NOT NULL,
+    breaks JSONB DEFAULT '[]'::jsonb,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
