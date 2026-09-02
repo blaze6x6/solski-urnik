@@ -1,6 +1,6 @@
 import { useMemo, useState, useEffect, useRef, useCallback } from 'react';
 import * as api from '../api';
-import { ScheduleEntry, Period, Subject, DayEvent, AfternoonEntry } from '../types';
+import { ScheduleEntry, Period, Subject, DayEvent, AfternoonEntry, SchoolBreak } from '../types';
 import { format, startOfWeek, addDays, isWithinInterval, parseISO, addWeeks, subWeeks } from 'date-fns';
 import { sl } from 'date-fns/locale';
 import { ChevronLeft, ChevronRight, Calendar, Star, Coffee, Umbrella, Type, FileDown } from 'lucide-react';
@@ -22,6 +22,7 @@ export default function ScheduleView({ classId, className, title }: Props) {
   const [periods, setPeriods] = useState<Period[]>([]);
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [schoolYear, setSchoolYear] = useState({ startDate: '', endDate: '' });
+  const [schoolBreaks, setSchoolBreaks] = useState<SchoolBreak[]>([]);
   const [timeEvents, setTimeEvents] = useState<DayEvent[][]>([[], [], [], [], []]);
   const [afternoonEntries, setAfternoonEntries] = useState<AfternoonEntry[]>([]);
   const [loading, setLoading] = useState(true);
@@ -30,8 +31,16 @@ export default function ScheduleView({ classId, className, title }: Props) {
   const [exporting, setExporting] = useState(false);
   const scheduleRef = useRef<HTMLDivElement>(null);
 
-  const weekStart = startOfWeek(currentDate, { weekStartsOn: 1 });
+  const getAdjustedDate = (date: Date) => {
+    const day = date.getDay();
+    if (day === 6) return addDays(date, 2); // Sobota -> ponedeljek (+2 dni)
+    if (day === 0) return addDays(date, 1); // Nedelja -> ponedeljek (+1 dan)
+    return date;
+  };
+
+  const weekStart = startOfWeek(getAdjustedDate(currentDate), { weekStartsOn: 1 });
   const weekDates = Array.from({ length: 5 }, (_, i) => addDays(weekStart, i));
+  
   // Holidays for this week
   const holidays = useMemo(() => {
     const years = new Set(weekDates.map(d => d.getFullYear()));
@@ -81,7 +90,6 @@ export default function ScheduleView({ classId, className, title }: Props) {
     return () => clearInterval(timer);
   }, []);
 
-  // Funkcija za pravilno sklanjanje števnikov
   const getEventLabel = (count: number) => {
     if (count === 1) return 'dogodek';
     if (count === 2) return 'dogodka';
@@ -99,6 +107,7 @@ export default function ScheduleView({ classId, className, title }: Props) {
       setPeriods(p);
       setSubjects(s);
       setSchoolYear(y);
+      setSchoolBreaks(y.breaks || []);
     });
   }, []);
 
@@ -159,6 +168,10 @@ export default function ScheduleView({ classId, className, title }: Props) {
 
   const getSubject = (id: string) => subjects.find(s => s.id === id);
 
+  const getBreakForDate = (dateStr: string) => {
+    return schoolBreaks.find(b => dateStr >= b.startDate && dateStr <= b.endDate);
+  };
+
   const toMinutes = (time: string) => {
     const [hours, minutes] = time.split(':').map(Number);
     return hours * 60 + minutes;
@@ -177,18 +190,17 @@ export default function ScheduleView({ classId, className, title }: Props) {
     });
   };
 
-  // Check if today is visible in this week's grid
   const todayStr = format(now, 'yyyy-MM-dd');
   const todayDayIndex = weekDates.findIndex(d => format(d, 'yyyy-MM-dd') === todayStr);
   const isTodayVisible = todayDayIndex >= 0;
-  // Check if a given day + period is the currently active one
+
   const isActivePeriod = (day: number, period: Period): boolean => {
     if (period.isBreak) return false;
     if (!isTodayVisible || day !== todayDayIndex) return false;
     const nowMins = now.getHours() * 60 + now.getMinutes();
     return nowMins >= toMinutes(period.startTime) && nowMins < toMinutes(period.endTime);
   };
-  // Check if a period is currently active (for the left column label, day-independent)
+
   const isPeriodActiveNow = (period: Period): boolean => {
     if (period.isBreak || !isTodayVisible) return false;
     const nowMins = now.getHours() * 60 + now.getMinutes();
@@ -267,8 +279,6 @@ export default function ScheduleView({ classId, className, title }: Props) {
 
       {/* Printable area */}
       <div ref={scheduleRef}>
-
-        {/* Schedule Grid */}
         <div className="bg-white rounded-xl shadow-sm overflow-hidden">
           {loading ? (
             <div className="flex items-center justify-center py-20">
@@ -335,8 +345,20 @@ export default function ScheduleView({ classId, className, title }: Props) {
                           </div>
                         </td>
                         {[0, 1, 2, 3, 4].map(day => {
+                          const dateStr = format(weekDates[day], 'yyyy-MM-dd');
+                          const activeBreak = getBreakForDate(dateStr);
                           const inSchoolYear = isDayInSchoolYear[day];
                           const eventsForCell = getEventsForPeriod(day, period);
+
+                          if (activeBreak) {
+                            return (
+                              <td key={day} className="p-1 border-b border-r border-gray-100 bg-amber-50/40">
+                                <div className="w-full h-full min-h-[52px] bg-amber-100/80 border border-amber-300 rounded-lg p-1 flex items-center justify-center text-center">
+                                  <span className="font-bold text-xs text-amber-900 leading-tight">{activeBreak.name}</span>
+                                </div>
+                              </td>
+                            );
+                          }
 
                           if (!inSchoolYear) {
                             return (
@@ -374,10 +396,6 @@ export default function ScheduleView({ classId, className, title }: Props) {
                                       {event.title}
                                     </span>
                                     <span className="w-full text-[9px] text-gray-400 leading-none">{event.startTime} – {event.endTime}</span>
-                                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-1.5 bg-gray-900 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-10">
-                                      {event.title} ({event.startTime} – {event.endTime})
-                                      <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900"></div>
-                                    </div>
                                   </div>
                                 ))}
                                 {eventsForCell.length === 0 && subject ? (
@@ -402,10 +420,6 @@ export default function ScheduleView({ classId, className, title }: Props) {
                                     {entry?.room && (
                                       <span className="w-full text-[10px] text-gray-400 mt-0.5 leading-none">{entry.room}</span>
                                     )}
-                                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-1.5 bg-gray-900 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-10">
-                                      {subject.name} ({period.startTime} – {period.endTime})
-                                      <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900"></div>
-                                    </div>
                                   </div>
                                 ) : eventsForCell.length === 0 ? (
                                   <div className="min-h-[52px]" />
@@ -470,8 +484,11 @@ export default function ScheduleView({ classId, className, title }: Props) {
                           <div className="text-[10px] text-gray-400">{slot.endTime}</div>
                         </td>
                         {[0, 1, 2, 3, 4].map(day => {
+                          const dateStr = format(weekDates[day], 'yyyy-MM-dd');
+                          const activeBreak = getBreakForDate(dateStr);
                           const inSchoolYear = isDayInSchoolYear[day];
-                          if (!inSchoolYear) {
+
+                          if (activeBreak || !inSchoolYear) {
                             return (
                               <td key={day} className="p-1 border-b border-r border-gray-100 bg-gray-50">
                                 <div className="min-h-[48px]" />
@@ -499,10 +516,6 @@ export default function ScheduleView({ classId, className, title }: Props) {
                                       <span className="font-bold text-xs" style={{ color: entry.color }}>
                                         {entry.name}
                                       </span>
-                                      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-1.5 bg-gray-900 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-10">
-                                        {entry.name} ({entry.startTime}–{entry.endTime})
-                                        <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900"></div>
-                                      </div>
                                     </div>
                                   ))}
                                 </div>
@@ -520,7 +533,7 @@ export default function ScheduleView({ classId, className, title }: Props) {
             </div>
           </div>
         )}
-      </div>{/* end scheduleRef */}
+      </div>
     </div>
   );
 }
