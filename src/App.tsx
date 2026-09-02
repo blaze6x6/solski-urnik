@@ -18,6 +18,7 @@ import BusPage from './components/BusPage';
 import EmailSettingsPage from './components/EmailSettingsPage';
 import GradesPage from './components/GradesPage';
 import CalendarPage from './components/CalendarPage';
+import PrintSchedulePage from './components/PrintSchedulePage';
 
 export default function App() {
   const [user, setUser] = useState<User | null>(api.getCurrentUser);
@@ -81,6 +82,8 @@ export default function App() {
         return user.role === 'admin' ? <EventsPage /> : <Dashboard user={user} />;
       case 'notes':
         return user.role === 'admin' ? <NotesPage /> : <Dashboard user={user} />;
+      case 'print-schedule':
+        return user.role === 'admin' ? <PrintSchedulePage /> : <Dashboard user={user} />;
       case 'bus':
         return <BusPage />;
       case 'email-settings':
