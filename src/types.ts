@@ -158,3 +158,4 @@ export type Page =
   | 'email-settings';
   | 'grades';
   | 'calendar';
+  | 'print-schedule';
