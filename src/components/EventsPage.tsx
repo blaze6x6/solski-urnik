@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import * as api from '../api';
 import { useMultipleAsync } from '../hooks/useAsync';
-import { DayEvent, SchoolClass, Recurrence } from '../types';
-import { Plus, Trash2, Edit2, Save, X, CalendarCheck, Clock, Repeat } from 'lucide-react';
+import { DayEvent, SchoolClass, Recurrence, EventReminder } from '../types';
+import { Plus, Trash2, Edit2, Save, X, CalendarCheck, Clock, Repeat, Bell } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { sl } from 'date-fns/locale';
 
@@ -39,6 +39,8 @@ interface FormState {
   startTime: string;
   endTime: string;
   recurrence: Recurrence;
+  addToCalendar: boolean; // <--- NOVO POLJE
+  reminders: EventReminder[]; // <--- DODANO
 }
 const emptyForm = (): FormState => ({
   date: format(new Date(), 'yyyy-MM-dd'),
@@ -49,6 +51,8 @@ const emptyForm = (): FormState => ({
   startTime: '08:00',
   endTime: '09:00',
   recurrence: 'none',
+  addToCalendar: true, // Privzeto vklopljeno, lahko nastavite na false
+  reminders: [{ type: 'days', value: 1 }], // <--- PRIVZETO 1 DAN PREJ
 });
 
 export default function EventsPage() {
@@ -90,14 +94,33 @@ export default function EventsPage() {
     if (!validate()) return;
     setSaving(true);
     try {
+      // 1. Shranjevanje med klasične dogodke
       await api.createEvent({
         ...form,
         endDate: form.recurrence === 'range' ? form.endDate : undefined,
       });
+
+      // 2. Če je izbrano, avtomatsko dodaj še v koledar (CalendarPage)
+      if (form.addToCalendar) {
+        await api.createCalendarEvent({
+          title: form.title,
+          color: form.color,
+          date: form.date,
+          endDate: form.recurrence === 'range' ? form.endDate : undefined,
+          startTime: form.startTime,
+          endTime: form.endTime,
+          recurrence: form.recurrence,
+          note: `Razred(i): ${form.classIds.length === 0 ? 'Vsi' : form.classIds.length}`,
+          reminders: form.reminders, // <--- PRENOS OPOMNIKOV
+        });
+      }
+
       setForm(emptyForm());
       setShowForm(false);
       refresh();
-    } finally { setSaving(false); }
+    } finally { 
+      setSaving(false); 
+    }
   };
   const handleUpdate = async (id: string) => {
     if (!validate()) return;
@@ -119,17 +142,19 @@ export default function EventsPage() {
     }
   };
 
-  const startEdit = (e: DayEvent) => {
+  const startEdit = (e: DayEvent & { reminders?: EventReminder[] }) => {
     setEditingId(e.id);
     setForm({
       date: e.date,
       endDate: e.endDate || '',
       title: e.title,
       color: e.color,
-      classIds: e.classIds,
+      classIds: e.classIds || [],
       startTime: e.startTime || '08:00',
       endTime: e.endTime || '09:00',
       recurrence: e.recurrence || 'none',
+      addToCalendar: false, // Pri urejanju je privzeto izklopljeno, da ne podvaja vnosa v koledar
+      reminders: e.reminders || [{ type: 'days', value: 1 }],
     });
   };
 
@@ -244,6 +269,107 @@ export default function EventsPage() {
         </div>
       </div>
 
+      {/* ========================================== */}
+      {/* opomniki    */}
+      {/* ========================================== */}
+      <div className="mt-4">
+        <div className="flex items-center justify-between mb-2">
+          <label className="block text-sm font-medium text-gray-600 flex items-center gap-1">
+            <Bell className="w-4 h-4" /> Email opomniki
+          </label>
+          <button
+            type="button"
+            onClick={() => setForm({ ...form, reminders: [...form.reminders, { type: 'hours', value: 1 }] })}
+            className="text-xs text-blue-600 hover:underline flex items-center gap-1"
+          >
+            <Plus className="w-3 h-3" /> Dodaj opomnik
+          </button>
+        </div>
+        {form.reminders.length === 0 && (
+          <p className="text-xs text-gray-400">Brez opomnikov.</p>
+        )}
+        <div className="space-y-2">
+          {form.reminders.map((rem, idx) => (
+            <div key={idx} className="flex items-center gap-2 bg-gray-50 rounded-lg p-2">
+              <select
+                value={rem.type}
+                onChange={e => {
+                  const updated = [...form.reminders];
+                  updated[idx] = { ...updated[idx], type: e.target.value as 'hours' | 'days' | 'custom', value: e.target.value === 'custom' ? 0 : updated[idx].value || 1 };
+                  setForm({ ...form, reminders: updated });
+                }}
+                className="px-2 py-1 border rounded text-xs"
+              >
+                <option value="hours">Ur prej</option>
+                <option value="days">Dni prej</option>
+                <option value="custom">Točen datum</option>
+              </select>
+              {rem.type === 'hours' && (
+                <select
+                  value={rem.value}
+                  onChange={e => {
+                    const updated = [...form.reminders];
+                    updated[idx] = { ...updated[idx], value: parseInt(e.target.value) };
+                    setForm({ ...form, reminders: updated });
+                  }}
+                  className="px-2 py-1 border rounded text-xs"
+                >
+                  {Array.from({ length: 23 }, (_, i) => i + 1).map(h => (
+                    <option key={h} value={h}>{h}h</option>
+                  ))}
+                </select>
+              )}
+              {rem.type === 'days' && (
+                <select
+                  value={rem.value}
+                  onChange={e => {
+                    const updated = [...form.reminders];
+                    updated[idx] = { ...updated[idx], value: parseInt(e.target.value) };
+                    setForm({ ...form, reminders: updated });
+                  }}
+                  className="px-2 py-1 border rounded text-xs"
+                >
+                  {Array.from({ length: 30 }, (_, i) => i + 1).map(d => (
+                    <option key={d} value={d}>{d} {d === 1 ? 'dan' : d === 2 ? 'dneva' : 'dni'}</option>
+                  ))}
+                </select>
+              )}
+              {rem.type === 'custom' && (
+                <>
+                  <input
+                    type="date"
+                    value={rem.customDate || ''}
+                    onChange={e => {
+                      const updated = [...form.reminders];
+                      updated[idx] = { ...updated[idx], customDate: e.target.value };
+                      setForm({ ...form, reminders: updated });
+                    }}
+                    className="px-2 py-1 border rounded text-xs"
+                  />
+                  <input
+                    type="time"
+                    value={rem.customTime || '09:00'}
+                    onChange={e => {
+                      const updated = [...form.reminders];
+                      updated[idx] = { ...updated[idx], customTime: e.target.value };
+                      setForm({ ...form, reminders: updated });
+                    }}
+                    className="px-2 py-1 border rounded text-xs"
+                  />
+                </>
+              )}
+              <button
+                type="button"
+                onClick={() => setForm({ ...form, reminders: form.reminders.filter((_, i) => i !== idx) })}
+                className="p-1 text-red-500 hover:bg-red-50 rounded ml-auto"
+              >
+                <Trash2 className="w-3 h-3" />
+              </button>
+            </div>
+          ))}
+        </div>
+      </div>
+
       {/* Classes */}
       <div className="mt-4">
         <div className="flex items-center justify-between mb-2">
@@ -271,8 +397,23 @@ export default function EventsPage() {
           {form.classIds.length === 0 ? 'Dogodek velja za vse razrede' : `Izbrani: ${form.classIds.length} razred(ov)`}
         </p>
       </div>
+      {/* TUKAJ NA KONCU JE IDEALNO MESTO ZA CHECKBOX */}
+      <div className="mt-4 pt-3 border-t border-gray-100 flex items-center gap-2">
+        <input
+          type="checkbox"
+          id="addToCalendar"
+          checked={form.addToCalendar}
+          onChange={e => setForm({ ...form, addToCalendar: e.target.checked })}
+          className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500 cursor-pointer"
+        />
+        <label htmlFor="addToCalendar" className="text-sm font-medium text-gray-700 cursor-pointer">
+          Dodaj dogodek tudi v koledar (CalendarPage)
+        </label>
+      </div>
     </>
   );
+
+
 
   return (
     <div>
