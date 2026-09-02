@@ -279,7 +279,7 @@ export default function ScheduleView({ classId, className, title }: Props) {
               <table className="w-full table-fixed border-collapse min-w-[700px]">
                 <thead>
                   <tr className="bg-blue-50">
-                    <th className="p-3 text-left text-sm font-semibold text-gray-600 w-28 border-b border-r border-blue-100">
+                    <th className="p-3 text-center text-sm font-semibold text-gray-600 w-28 border-b border-r border-blue-100">
                       Ura
                     </th>
                     {weekDates.map((date, i) => {
