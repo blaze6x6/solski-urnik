@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { User, Student, SchoolClass, StudentNote } from '../types';
 import * as api from '../api';
 import { useMultipleAsync } from '../hooks/useAsync';
-import { GraduationCap, Calendar, Clock, StickyNote, ChevronDown, ChevronUp } from 'lucide-react';
+import { GraduationCap, Calendar, Clock, StickyNote, ChevronDown, ChevronUp, Users, User as UserIcon } from 'lucide-react';
 import ScheduleView from './ScheduleView';
 import { format } from 'date-fns';
 import { sl } from 'date-fns/locale';
@@ -14,7 +14,6 @@ interface Props {
 export default function Dashboard({ user }: Props) {
   const [currentTime, setCurrentTime] = useState(new Date());
 
-  // Update time every second
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
     return () => clearInterval(timer);
@@ -50,7 +49,7 @@ export default function Dashboard({ user }: Props) {
         </div>
       </div>
 
-      {/* Children schedules */}
+      {/* Children schedules with filter */}
       <ChildrenSchedules user={user} />
     </div>
   );
@@ -62,6 +61,8 @@ function ChildrenSchedules({ user }: { user: User }) {
     classes: api.getClasses,
   });
 
+  const [activeFilter, setActiveFilter] = useState<'all' | string>('all');
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
@@ -71,62 +72,60 @@ function ChildrenSchedules({ user }: { user: User }) {
   }
 
   if (error) {
-    return (
-      <div className="bg-red-50 text-red-600 p-4 rounded-xl">
-        Napaka: {error}
-      </div>
-    );
+    return <div className="bg-red-50 text-red-600 p-4 rounded-xl">Napaka: {error}</div>;
   }
 
   const { students, classes } = data;
-
-  // Get children based on user role
-  let children: Student[] = [];
-  
-  if (user.role === 'admin') {
-    // Admin sees all students (or can be filtered to specific ones)
-    // For a "private" schedule, let's show students linked to admin as parent
-    // If no children linked, show all students
-    if (user.childrenIds.length > 0) {
-      children = user.childrenIds
-        .map(id => students?.find((s: Student) => s.id === id))
-        .filter(Boolean) as Student[];
-    } else {
-      // Show all students grouped - or prompt to link children
-      children = students || [];
-    }
-  } else {
-    // Parent sees only their children
-    children = user.childrenIds
-      .map(id => students?.find((s: Student) => s.id === id))
-      .filter(Boolean) as Student[];
-  }
+  let children: Student[] = user.role === 'admin' && user.childrenIds.length === 0
+    ? students || []
+    : user.childrenIds.map(id => students?.find((s: Student) => s.id === id)).filter(Boolean) as Student[];
 
   if (children.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-20 bg-white rounded-xl shadow-sm">
-        <div className="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mb-4">
-          <GraduationCap className="w-12 h-12 text-gray-400" />
-        </div>
+        <GraduationCap className="w-12 h-12 text-gray-400 mb-4" />
         <h2 className="text-xl font-bold text-gray-700 mb-2">Ni povezanih otrok</h2>
-        <p className="text-gray-500 text-center max-w-md">
-          {user.role === 'admin' 
-            ? 'Povežite svoj račun z otroki v razdelku "Starši & Otroci" za prikaz njihovih urnikov.'
-            : 'Obrnite se na administratorja, da poveže vaš račun z otrokom.'}
-        </p>
       </div>
     );
   }
 
+  const filteredChildren = children.filter(c => activeFilter === 'all' || c.id === activeFilter);
+
   return (
-    <div className="space-y-6">
-      {children.map(child => (
-        <ChildScheduleCard 
-          key={child.id} 
-          child={child} 
-          className={classes?.find((c: SchoolClass) => c.id === child.classId)?.name || ''}
-        />
-      ))}
+    <div>
+      {/* Gumbi za filtriranje */}
+      <div className="flex items-center gap-2 mb-6 bg-white p-2 rounded-xl shadow-xs w-fit border border-gray-100">
+        <button
+          onClick={() => setActiveFilter('all')}
+          className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition ${
+            activeFilter === 'all' ? 'bg-blue-600 text-white shadow-xs' : 'text-gray-600 hover:bg-gray-100'
+          }`}
+        >
+          <Users className="w-4 h-4" /> Vsi
+        </button>
+        {children.map(child => (
+          <button
+            key={child.id}
+            onClick={() => setActiveFilter(child.id)}
+            className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition ${
+              activeFilter === child.id ? 'bg-blue-600 text-white shadow-xs' : 'text-gray-600 hover:bg-gray-100'
+            }`}
+          >
+            <UserIcon className="w-4 h-4" /> {child.firstName}
+          </button>
+        ))}
+      </div>
+
+      {/* Seznam prikazanih otrok */}
+      <div className="space-y-6">
+        {filteredChildren.map(child => (
+          <ChildScheduleCard 
+            key={child.id} 
+            child={child} 
+            className={classes?.find((c: SchoolClass) => c.id === child.classId)?.name || ''}
+          />
+        ))}
+      </div>
     </div>
   );
 }
@@ -134,21 +133,15 @@ function ChildrenSchedules({ user }: { user: User }) {
 function ChildScheduleCard({ child, className }: { child: Student; className: string }) {
   const [expanded, setExpanded] = useState(true);
   const [notes, setNotes] = useState<StudentNote[]>([]);
-  const [notesLoading, setNotesLoading] = useState(true);
 
   useEffect(() => {
-    api.getNotesForStudent(child.id)
-      .then(setNotes)
-      .catch(() => setNotes([]))
-      .finally(() => setNotesLoading(false));
+    api.getNotesForStudent(child.id).then(setNotes).catch(() => setNotes([]));
   }, [child.id]);
 
-  // Get recent notes (last 3)
   const recentNotes = notes.slice(0, 3);
 
   return (
     <div className="bg-white rounded-xl shadow-sm overflow-hidden">
-      {/* Child header */}
       <div 
         className="p-4 bg-gradient-to-r from-blue-50 to-indigo-50 flex items-center justify-between cursor-pointer"
         onClick={() => setExpanded(!expanded)}
@@ -158,9 +151,7 @@ function ChildScheduleCard({ child, className }: { child: Student; className: st
             {child.firstName.charAt(0)}{child.lastName.charAt(0)}
           </div>
           <div>
-            <p className="font-semibold text-gray-800 text-lg">
-              {child.firstName} {child.lastName}
-            </p>
+            <p className="font-semibold text-gray-800 text-lg">{child.firstName} {child.lastName}</p>
             <p className="text-sm text-gray-500">Razred: {className}</p>
           </div>
         </div>
@@ -171,8 +162,7 @@ function ChildScheduleCard({ child, className }: { child: Student; className: st
 
       {expanded && (
         <div className="p-4">
-          {/* Recent notes */}
-          {!notesLoading && recentNotes.length > 0 && (
+          {recentNotes.length > 0 && (
             <div className="mb-4 p-3 bg-yellow-50 rounded-lg border border-yellow-200">
               <div className="flex items-center gap-2 mb-2">
                 <StickyNote className="w-4 h-4 text-yellow-600" />
@@ -181,21 +171,14 @@ function ChildScheduleCard({ child, className }: { child: Student; className: st
               <div className="space-y-2">
                 {recentNotes.map(note => (
                   <div key={note.id} className="text-sm">
-                    <span className="text-yellow-600 font-medium">
-                      {format(new Date(note.date), 'd. M. yyyy')}:
-                    </span>{' '}
+                    <span className="text-yellow-600 font-medium">{format(new Date(note.date), 'd. M. yyyy')}:</span>{' '}
                     <span className="text-gray-700">{note.content}</span>
                   </div>
                 ))}
               </div>
             </div>
           )}
-
-          {/* Schedule */}
-          <ScheduleView 
-            classId={child.classId} 
-            title=""
-          />
+          <ScheduleView classId={child.classId} title="" />
         </div>
       )}
     </div>
