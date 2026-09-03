@@ -3,7 +3,7 @@ import * as api from '../api';
 import { ScheduleEntry, Period, Subject, DayEvent, AfternoonEntry, SchoolBreak } from '../types';
 import { format, startOfWeek, addDays, isWithinInterval, parseISO, addWeeks, subWeeks } from 'date-fns';
 import { sl } from 'date-fns/locale';
-import { ChevronLeft, ChevronRight, Calendar, Star, Coffee, Umbrella, Type, FileDown } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Calendar, Star, Coffee, Umbrella, Type, FileDown, X, Clock, MapPin } from 'lucide-react';
 import { toPng } from 'html-to-image';
 import { jsPDF } from 'jspdf';
 import { getSlovenianHolidays } from '../holidays';
@@ -14,6 +14,15 @@ interface Props {
   classId: string;
   className?: string;
   title?: string;
+}
+
+interface SelectedItemInfo {
+  title: string;
+  subtitle?: string;
+  startTime: string;
+  endTime: string;
+  room?: string;
+  color?: string;
 }
 
 export default function ScheduleView({ classId, className, title }: Props) {
@@ -27,21 +36,25 @@ export default function ScheduleView({ classId, className, title }: Props) {
   const [afternoonEntries, setAfternoonEntries] = useState<AfternoonEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [now, setNow] = useState(new Date());
-  const [showFullName, setShowFullName] = useState(() => localStorage.getItem('schedule_showFullName') === 'true');
   const [exporting, setExporting] = useState(false);
+  
+  // Stanje za preklop med polnimi imeni in kraticami na računalniku
+  const [showFullName, setShowFullName] = useState(true);
+  
+  const [selectedItem, setSelectedItem] = useState<SelectedItemInfo | null>(null);
+
   const scheduleRef = useRef<HTMLDivElement>(null);
 
   const getAdjustedDate = (date: Date) => {
     const day = date.getDay();
-    if (day === 6) return addDays(date, 2); // Sobota -> ponedeljek (+2 dni)
-    if (day === 0) return addDays(date, 1); // Nedelja -> ponedeljek (+1 dan)
+    if (day === 6) return addDays(date, 2);
+    if (day === 0) return addDays(date, 1);
     return date;
   };
 
   const weekStart = startOfWeek(getAdjustedDate(currentDate), { weekStartsOn: 1 });
   const weekDates = Array.from({ length: 5 }, (_, i) => addDays(weekStart, i));
   
-  // Holidays for this week
   const holidays = useMemo(() => {
     const years = new Set(weekDates.map(d => d.getFullYear()));
     const map = new Map<string, string>();
@@ -54,10 +67,7 @@ export default function ScheduleView({ classId, className, title }: Props) {
     if (!el || exporting) return;
     setExporting(true);
     try {
-      const imgData = await toPng(el, {
-        pixelRatio: 2,
-        backgroundColor: '#f3f4f6',
-      });
+      const imgData = await toPng(el, { pixelRatio: 2, backgroundColor: '#f3f4f6' });
       const imgW = el.offsetWidth * 2;
       const imgH = el.offsetHeight * 2;
       const pdf = new jsPDF({
@@ -84,7 +94,6 @@ export default function ScheduleView({ classId, className, title }: Props) {
     }
   }, [exporting, weekStart]);
 
-  // Live clock – update every 15 seconds
   useEffect(() => {
     const timer = setInterval(() => setNow(new Date()), 15_000);
     return () => clearInterval(timer);
@@ -97,7 +106,6 @@ export default function ScheduleView({ classId, className, title }: Props) {
     return 'dogodkov';
   };
 
-  // Load static data
   useEffect(() => {
     Promise.all([
       api.getPeriods(),
@@ -111,7 +119,6 @@ export default function ScheduleView({ classId, className, title }: Props) {
     });
   }, []);
 
-  // Load schedule + afternoon when classId changes
   useEffect(() => {
     if (classId) {
       api.getScheduleForClass(classId).then(setEntries);
@@ -119,7 +126,6 @@ export default function ScheduleView({ classId, className, title }: Props) {
     }
   }, [classId]);
 
-  // Load time-specific events for the week
   const weekKey = format(weekStart, 'yyyy-MM-dd');
   useEffect(() => {
     if (!classId) return;
@@ -138,7 +144,6 @@ export default function ScheduleView({ classId, className, title }: Props) {
     });
   }, [classId, weekKey]);
 
-  // Check if the entire week is within school year
   const isWeekInSchoolYear = useMemo(() => {
     if (!schoolYear.startDate || !schoolYear.endDate) return true;
     try {
@@ -150,7 +155,6 @@ export default function ScheduleView({ classId, className, title }: Props) {
     }
   }, [weekDates, schoolYear]);
 
-  // Check each day if it's in school year
   const isDayInSchoolYear = useMemo(() => {
     if (!schoolYear.startDate || !schoolYear.endDate) return weekDates.map(() => true);
     try {
@@ -213,7 +217,7 @@ export default function ScheduleView({ classId, className, title }: Props) {
         <h2 className="text-xl font-bold text-gray-800 mb-4">{title}</h2>
       )}
 
-      {/* Week navigation */}
+      {/* Navigacija tedna */}
       <div className="flex flex-col sm:flex-row items-center justify-between mb-4 bg-white rounded-xl p-4 shadow-sm gap-3">
         <button
           onClick={() => setCurrentDate(subWeeks(currentDate, 1))}
@@ -222,9 +226,9 @@ export default function ScheduleView({ classId, className, title }: Props) {
           <ChevronLeft className="w-5 h-5" />
         </button>
 
-        <div className="flex items-center gap-2 flex-wrap justify-center">
+        <div className="flex items-center gap-2 flex-wrap justify-center text-center">
           <Calendar className="w-5 h-5 text-blue-600" />
-          <span className="font-semibold text-gray-800">
+          <span className="font-semibold text-gray-800 text-sm sm:text-base">
             {format(weekStart, 'd. MMMM', { locale: sl })} – {format(addDays(weekStart, 4), 'd. MMMM yyyy', { locale: sl })}
           </span>
           {!isWeekInSchoolYear && (
@@ -235,6 +239,18 @@ export default function ScheduleView({ classId, className, title }: Props) {
         </div>
 
         <div className="flex items-center gap-2">
+          {/* Gumb za preklop polna imena / kratice na računalniku */}
+          <button
+            onClick={() => setShowFullName(!showFullName)}
+            className={`hidden sm:flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg transition font-medium ${
+              showFullName ? 'bg-blue-100 text-blue-700 hover:bg-blue-200' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+            }`}
+            title="Preklopi med polnimi imeni in kraticami"
+          >
+            <Type className="w-4 h-4" />
+            {showFullName ? 'Polna imena' : 'Kratice'}
+          </button>
+
           <button
             onClick={exportPdf}
             disabled={exporting}
@@ -247,20 +263,6 @@ export default function ScheduleView({ classId, className, title }: Props) {
               <FileDown className="w-4 h-4" />
             )}
             PDF
-          </button>
-          <button
-            onClick={() => {
-              const next = !showFullName;
-              setShowFullName(next);
-              localStorage.setItem('schedule_showFullName', String(next));
-            }}
-            className={`px-3 py-1.5 text-sm rounded-lg transition font-medium flex items-center gap-1.5 ${
-              showFullName ? 'bg-indigo-100 text-indigo-700 hover:bg-indigo-200' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-            }`}
-            title={showFullName ? 'Prikaži kratice' : 'Prikaži polna imena'}
-          >
-            <Type className="w-4 h-4" />
-            {showFullName ? 'Abc' : 'MAT'}
           </button>
           <button
             onClick={() => setCurrentDate(new Date())}
@@ -277,7 +279,7 @@ export default function ScheduleView({ classId, className, title }: Props) {
         </div>
       </div>
 
-      {/* Printable area */}
+      {/* Urnik */}
       <div ref={scheduleRef}>
         <div className="bg-white rounded-xl shadow-sm overflow-hidden">
           {loading ? (
@@ -286,10 +288,10 @@ export default function ScheduleView({ classId, className, title }: Props) {
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full table-fixed border-collapse min-w-[700px]">
+              <table className="w-full table-fixed border-collapse">
                 <thead>
                   <tr className="bg-blue-50">
-                    <th className="p-3 text-center text-sm font-semibold text-gray-600 w-28 border-b border-r border-blue-100">
+                    <th className="p-1 sm:p-3 text-center text-[10px] sm:text-sm font-semibold text-gray-600 w-14 sm:w-28 border-b border-r border-blue-100">
                       Ura
                     </th>
                     {weekDates.map((date, i) => {
@@ -301,24 +303,24 @@ export default function ScheduleView({ classId, className, title }: Props) {
                       return (
                         <th
                           key={i}
-                          className={`p-3 text-center text-sm font-semibold border-b border-r border-blue-100 ${
+                          className={`p-1 sm:p-3 text-center text-[11px] sm:text-sm font-semibold border-b border-r border-blue-100 ${
                             isToday ? 'bg-blue-600 text-white' : !inSchoolYear ? 'bg-gray-100 text-gray-400' : 'text-gray-700'
                           }`}
                         >
                           <div>{DAYS_SHORT[i]}</div>
-                          <div className={`text-xs ${isToday ? 'text-blue-100' : 'text-gray-400'}`}>
+                          <div className={`text-[9px] sm:text-xs ${isToday ? 'text-blue-100' : 'text-gray-400'}`}>
                             {format(date, 'd. M.')}
                           </div>
                           {holiday && (
-                            <div className={`mt-0.5 text-[9px] font-bold leading-tight ${isToday ? 'text-red-200' : 'text-red-500'}`}>
+                            <div className={`mt-0.5 text-[7px] sm:text-[9px] font-bold leading-tight ${isToday ? 'text-red-200' : 'text-red-500'}`}>
                               {holiday}
                             </div>
                           )}
                           {!inSchoolYear && !holiday && (
-                            <div className="mt-1 text-[10px] text-gray-400">Počitnice</div>
+                            <div className="mt-1 text-[8px] sm:text-[10px] text-gray-400">Počitnice</div>
                           )}
                           {events.length > 0 && inSchoolYear && (
-                            <div className={`mt-1 text-[10px] font-medium ${isToday ? 'text-blue-100' : 'text-blue-600'}`}>
+                            <div className={`mt-1 text-[8px] sm:text-[10px] font-medium ${isToday ? 'text-blue-100' : 'text-blue-600'}`}>
                               {events.length} {getEventLabel(events.length)}
                             </div>
                           )}
@@ -332,16 +334,16 @@ export default function ScheduleView({ classId, className, title }: Props) {
                     const periodActive = isPeriodActiveNow(period);
                     return (
                       <tr key={period.id} className={period.isBreak ? 'bg-amber-50/50' : 'hover:bg-gray-50'}>
-                        <td className={`p-2 text-center border-b border-r border-gray-100 ${periodActive ? 'bg-blue-100' : 'bg-gray-50'}`}>
-                          <div className="flex items-center justify-center gap-1">
-                            {period.isBreak && <Coffee className="w-3 h-3 text-amber-600" />}
-                            {periodActive && <span className="w-2 h-2 rounded-full bg-blue-600 animate-pulse" />}
-                            <span className={`text-xs font-bold ${periodActive ? 'text-blue-700' : period.isBreak ? 'text-amber-700' : 'text-gray-700'}`}>
+                        <td className={`p-1 text-center border-b border-r border-gray-100 ${periodActive ? 'bg-blue-100' : 'bg-gray-50'}`}>
+                          <div className="flex items-center justify-center gap-0.5">
+                            {period.isBreak && <Coffee className="w-2.5 h-2.5 text-amber-600" />}
+                            {periodActive && <span className="w-1.5 h-1.5 rounded-full bg-blue-600 animate-pulse" />}
+                            <span className={`text-[10px] sm:text-xs font-bold ${periodActive ? 'text-blue-700' : period.isBreak ? 'text-amber-700' : 'text-gray-700'}`}>
                               {period.name}
                             </span>
                           </div>
-                          <div className={`text-[10px] ${periodActive ? 'text-blue-500' : 'text-gray-400'}`}>
-                            {period.startTime} – {period.endTime}
+                          <div className={`text-[8px] sm:text-[10px] ${periodActive ? 'text-blue-500' : 'text-gray-400'}`}>
+                            {period.startTime}–{period.endTime}
                           </div>
                         </td>
                         {[0, 1, 2, 3, 4].map(day => {
@@ -352,9 +354,9 @@ export default function ScheduleView({ classId, className, title }: Props) {
 
                           if (activeBreak) {
                             return (
-                              <td key={day} className="p-1 border-b border-r border-gray-100 bg-amber-50/40">
-                                <div className="w-full h-full min-h-[52px] bg-amber-100/80 border border-amber-300 rounded-lg p-1 flex items-center justify-center text-center">
-                                  <span className="font-bold text-xs text-amber-900 leading-tight">{activeBreak.name}</span>
+                              <td key={day} className="p-0.5 border-b border-r border-gray-100 bg-amber-50/40">
+                                <div className="w-full h-full min-h-[44px] sm:min-h-[52px] bg-amber-100/80 border border-amber-300 rounded-md p-0.5 flex items-center justify-center text-center">
+                                  <span className="font-bold text-[10px] sm:text-xs text-amber-900 leading-tight">{activeBreak.name}</span>
                                 </div>
                               </td>
                             );
@@ -362,17 +364,17 @@ export default function ScheduleView({ classId, className, title }: Props) {
 
                           if (!inSchoolYear) {
                             return (
-                              <td key={day} className="p-1 border-b border-r border-gray-100 bg-gray-50">
-                                <div className="min-h-[52px]" />
+                              <td key={day} className="p-0.5 border-b border-r border-gray-100 bg-gray-50">
+                                <div className="min-h-[44px] sm:min-h-[52px]" />
                               </td>
                             );
                           }
 
                           if (period.isBreak) {
                             return (
-                              <td key={day} className="p-1 border-b border-r border-gray-100">
-                                <div className="min-h-[40px] flex items-center justify-center">
-                                  <Coffee className="w-4 h-4 text-amber-300" />
+                              <td key={day} className="p-0.5 border-b border-r border-gray-100">
+                                <div className="min-h-[30px] sm:min-h-[40px] flex items-center justify-center">
+                                  <Coffee className="w-3.5 h-3.5 text-amber-300" />
                                 </div>
                               </td>
                             );
@@ -383,24 +385,38 @@ export default function ScheduleView({ classId, className, title }: Props) {
                           const active = isActivePeriod(day, period);
 
                           return (
-                            <td key={day} className={`p-1 border-b border-r border-gray-100 ${active ? 'bg-blue-50/60' : ''}`}>
-                              <div className="min-h-[52px] space-y-0.5">
+                            <td key={day} className={`p-0.5 border-b border-r border-gray-100 ${active ? 'bg-blue-50/60' : ''}`}>
+                              <div className="min-h-[44px] sm:min-h-[52px] space-y-0.5">
                                 {eventsForCell.map(event => (
                                   <div
                                     key={event.id}
-                                    className="w-full rounded-lg px-0.5 py-1.5 text-center flex flex-col justify-center leading-tight relative group cursor-default"
+                                    onClick={() => setSelectedItem({
+                                      title: event.title,
+                                      startTime: event.startTime,
+                                      endTime: event.endTime,
+                                      color: event.color
+                                    })}
+                                    className="w-full rounded-md p-1 text-center flex flex-col justify-center leading-tight cursor-pointer hover:opacity-80 transition overflow-hidden"
                                     style={{ backgroundColor: event.color + '15', borderLeft: `3px solid ${event.color}` }}
                                   >
-                                    <Star className="w-3.5 h-3.5 mb-0.5 self-center" style={{ color: event.color }} />
-                                    <span className="w-full text-[10px] font-semibold break-words whitespace-normal px-0.5" style={{ color: event.color }}>
+                                    <Star className="w-2.5 h-2.5 mb-0.5 self-center" style={{ color: event.color }} />
+                                    <span className="w-full text-[9px] sm:text-[11px] font-semibold truncate" style={{ color: event.color }}>
                                       {event.title}
                                     </span>
-                                    <span className="w-full text-[9px] text-gray-400 leading-none">{event.startTime} – {event.endTime}</span>
+                                    <span className="w-full text-[7px] sm:text-[9px] text-gray-400 leading-none">{event.startTime}–{event.endTime}</span>
                                   </div>
                                 ))}
                                 {eventsForCell.length === 0 && subject ? (
                                   <div
-                                    className={`w-full min-h-[52px] rounded-lg px-0.5 py-1.5 text-center flex flex-col items-center justify-center cursor-pointer relative group leading-tight ${
+                                    onClick={() => setSelectedItem({
+                                      title: subject.name,
+                                      subtitle: `Kratica: ${subject.shortName}`,
+                                      startTime: period.startTime,
+                                      endTime: period.endTime,
+                                      room: entry?.room,
+                                      color: subject.color
+                                    })}
+                                    className={`w-full min-h-[44px] sm:min-h-[52px] rounded-md p-0.5 sm:p-1 text-center flex flex-col items-center justify-center cursor-pointer hover:opacity-90 transition relative group leading-tight overflow-hidden ${
                                       active ? 'ring-2 ring-blue-500 shadow-md shadow-blue-200' : ''
                                     }`}
                                     style={{
@@ -409,20 +425,24 @@ export default function ScheduleView({ classId, className, title }: Props) {
                                     }}
                                   >
                                     {active && (
-                                      <span className="absolute -top-1 -right-1 h-3 w-3 rounded-full bg-blue-600 animate-pulse"></span>
+                                      <span className="absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full bg-blue-600 animate-pulse"></span>
                                     )}
+                                    {/* Na mobilnih napravah vedno kratica, na računalniku odvisno od gumba showFullName */}
                                     <span
-                                      className={`w-full font-bold break-words whitespace-normal px-0.5 ${showFullName ? 'text-[13px] leading-tight' : 'text-sm leading-tight'}`}
+                                      className="w-full font-bold text-[10px] sm:text-xs leading-tight truncate px-0.5"
                                       style={{ color: subject.color }}
                                     >
-                                      {showFullName ? subject.name : subject.shortName}
+                                      <span className="sm:hidden">{subject.shortName}</span>
+                                      <span className="hidden sm:inline">
+                                        {showFullName ? subject.name : subject.shortName}
+                                      </span>
                                     </span>
                                     {entry?.room && (
-                                      <span className="w-full text-[10px] text-gray-400 mt-0.5 leading-none">{entry.room}</span>
+                                      <span className="w-full text-[7px] sm:text-[9px] text-gray-400 mt-0.5 leading-none truncate">{entry.room}</span>
                                     )}
                                   </div>
                                 ) : eventsForCell.length === 0 ? (
-                                  <div className="min-h-[52px]" />
+                                  <div className="min-h-[44px] sm:min-h-[52px]" />
                                 ) : null}
                               </div>
                             </td>
@@ -436,104 +456,61 @@ export default function ScheduleView({ classId, className, title }: Props) {
             </div>
           )}
         </div>
-
-        {/* Afternoon activities */}
-        {afternoonEntries.length > 0 && (
-          <div className="bg-white rounded-xl shadow-sm overflow-hidden mt-4">
-            <div className="px-4 py-3 bg-emerald-50 border-b border-emerald-100">
-              <h3 className="text-sm font-semibold text-emerald-800 flex items-center gap-2">
-                🌤️ Popoldanske dejavnosti
-              </h3>
-            </div>
-            <div className="overflow-x-auto">
-              <table className="w-full table-fixed border-collapse min-w-[700px]">
-                <thead>
-                  <tr className="bg-emerald-50/50">
-                    <th className="p-3 text-left text-sm font-semibold text-gray-600 w-28 border-b border-r border-emerald-100">
-                      Čas
-                    </th>
-                    {weekDates.map((date, i) => {
-                      const isToday = format(date, 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd');
-                      const inSchoolYear = isDayInSchoolYear[i];
-                      return (
-                        <th
-                          key={i}
-                          className={`p-3 text-center text-sm font-semibold border-b border-r border-emerald-100 ${
-                            isToday ? 'bg-emerald-600 text-white' : !inSchoolYear ? 'bg-gray-100 text-gray-400' : 'text-gray-700'
-                          }`}
-                        >
-                          {DAYS_SHORT[i]}
-                        </th>
-                      );
-                    })}
-                  </tr>
-                </thead>
-                <tbody>
-                  {(() => {
-                    const slots = [...new Set(
-                      afternoonEntries.map(e => `${e.startTime}-${e.endTime}`)
-                    )].sort().map(s => {
-                      const [start, end] = s.split('-');
-                      return { startTime: start, endTime: end };
-                    });
-
-                    return slots.map(slot => (
-                      <tr key={`${slot.startTime}-${slot.endTime}`} className="hover:bg-gray-50">
-                        <td className="p-2 text-center border-b border-r border-gray-100 bg-gray-50">
-                          <div className="text-xs font-bold text-gray-700">{slot.startTime}</div>
-                          <div className="text-[10px] text-gray-400">{slot.endTime}</div>
-                        </td>
-                        {[0, 1, 2, 3, 4].map(day => {
-                          const dateStr = format(weekDates[day], 'yyyy-MM-dd');
-                          const activeBreak = getBreakForDate(dateStr);
-                          const inSchoolYear = isDayInSchoolYear[day];
-
-                          if (activeBreak || !inSchoolYear) {
-                            return (
-                              <td key={day} className="p-1 border-b border-r border-gray-100 bg-gray-50">
-                                <div className="min-h-[48px]" />
-                              </td>
-                            );
-                          }
-
-                          const dayEntries = afternoonEntries.filter(
-                            e => e.dayOfWeek === day && e.startTime === slot.startTime && e.endTime === slot.endTime
-                          );
-
-                          return (
-                            <td key={day} className="p-1 border-b border-r border-gray-100">
-                              {dayEntries.length > 0 ? (
-                                <div className="space-y-1">
-                                  {dayEntries.map(entry => (
-                                    <div
-                                      key={entry.id}
-                                      className="rounded-lg p-2 text-center min-h-[48px] flex flex-col items-center justify-center relative group cursor-default"
-                                      style={{
-                                        backgroundColor: entry.color + '18',
-                                        borderLeft: `3px solid ${entry.color}`,
-                                      }}
-                                    >
-                                      <span className="font-bold text-xs" style={{ color: entry.color }}>
-                                        {entry.name}
-                                      </span>
-                                    </div>
-                                  ))}
-                                </div>
-                              ) : (
-                                <div className="min-h-[48px]" />
-                              )}
-                            </td>
-                          );
-                        })}
-                      </tr>
-                    ));
-                  })()}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
       </div>
+
+      {/* Modalno okno (Popup) ob kliku na predmet */}
+      {selectedItem && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50 animate-fade-in">
+          <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6 relative space-y-4 border border-gray-100">
+            <button
+              onClick={() => setSelectedItem(null)}
+              className="absolute top-4 right-4 p-2 text-gray-400 hover:bg-gray-100 rounded-full transition"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="flex items-center gap-3">
+              <div 
+                className="w-4 h-10 rounded-full shrink-0" 
+                style={{ backgroundColor: selectedItem.color || '#3B82F6' }} 
+              />
+              <div>
+                <h3 className="text-xl font-bold text-gray-800 leading-snug">
+                  {selectedItem.title}
+                </h3>
+                {selectedItem.subtitle && (
+                  <p className="text-xs text-gray-500 mt-0.5">{selectedItem.subtitle}</p>
+                )}
+              </div>
+            </div>
+
+            <div className="bg-gray-50 rounded-xl p-4 space-y-2 text-sm">
+              <div className="flex items-center gap-2 text-gray-700">
+                <Clock className="w-4 h-4 text-blue-600" />
+                <span className="font-semibold">Časovni obseg:</span>{' '}
+                <span className="font-mono bg-white px-2 py-0.5 rounded border border-gray-200">
+                  {selectedItem.startTime} – {selectedItem.endTime}
+                </span>
+              </div>
+
+              {selectedItem.room && (
+                <div className="flex items-center gap-2 text-gray-700">
+                  <MapPin className="w-4 h-4 text-emerald-600" />
+                  <span className="font-semibold">Učilnica / prostor:</span>{' '}
+                  <span className="text-gray-600">{selectedItem.room}</span>
+                </div>
+              )}
+            </div>
+
+            <button
+              onClick={() => setSelectedItem(null)}
+              className="w-full bg-blue-600 text-white py-2.5 rounded-xl font-medium hover:bg-blue-700 transition"
+            >
+              Zapri
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
