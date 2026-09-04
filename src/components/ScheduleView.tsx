@@ -41,7 +41,34 @@ export default function ScheduleView({ classId, className, title }: Props) {
   const [showFullName, setShowFullName] = useState(true);
   const [selectedItem, setSelectedItem] = useState<SelectedItemInfo | null>(null);
 
+  // Stanja za upravljanje potega prsta (Swipe)
+  const [touchStart, setTouchStart] = useState<number | null>(null);
+  const [touchEnd, setTouchEnd] = useState<number | null>(null);
+  const minSwipeDistance = 50;
+
   const scheduleRef = useRef<HTMLDivElement>(null);
+
+  const onTouchStart = (e: React.TouchEvent) => {
+    setTouchEnd(null);
+    setTouchStart(e.targetTouches[0].clientX);
+  };
+
+  const onTouchMove = (e: React.TouchEvent) => {
+    setTouchEnd(e.targetTouches[0].clientX);
+  };
+
+  const onTouchEnd = () => {
+    if (!touchStart || !touchEnd) return;
+    const distance = touchStart - touchEnd;
+    const isLeftSwipe = distance > minSwipeDistance;
+    const isRightSwipe = distance < -minSwipeDistance;
+
+    if (isLeftSwipe) {
+      setCurrentDate(addWeeks(currentDate, 1));
+    } else if (isRightSwipe) {
+      setCurrentDate(subWeeks(currentDate, 1));
+    }
+  };
 
   const getAdjustedDate = (date: Date) => {
     const day = date.getDay();
@@ -278,8 +305,13 @@ export default function ScheduleView({ classId, className, title }: Props) {
         </div>
       </div>
 
-      {/* Urnik */}
-      <div ref={scheduleRef}>
+      {/* Urnik z dodanimi dogodki za zaznavanje potega prsta (Swipe) */}
+      <div 
+        ref={scheduleRef}
+        onTouchStart={onTouchStart}
+        onTouchMove={onTouchMove}
+        onTouchEnd={onTouchEnd}
+      >
         <div className="bg-white rounded-xl shadow-sm overflow-hidden">
           {loading ? (
             <div className="flex items-center justify-center py-20">
@@ -386,19 +418,20 @@ export default function ScheduleView({ classId, className, title }: Props) {
                           return (
                             <td 
                               key={day} 
-                              className={`p-0.5 border-b border-r border-gray-100 relative ${
-                                active ? 'bg-blue-50/40' : ''
-                              }`}
+                              className="p-0.5 border-b border-r border-gray-100 relative"
                             >
-                              {/* Pulzirajoča točka v zgornjem desnem kotu celice */}
+                              {/* Lebdeča osvetlitev ozadja celice in pulzirajoča točka */}
                               {active && (
-                                <span className="absolute top-1 right-1 flex h-2 w-2 z-20">
-                                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
-                                  <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-600"></span>
-                                </span>
+                                <>
+                                  <div className="absolute inset-0 bg-blue-100/60 pointer-events-none z-10" />
+                                  <span className="absolute top-1 right-1 flex h-2 w-2 z-30">
+                                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
+                                    <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-600"></span>
+                                  </span>
+                                </>
                               )}
 
-                              <div className="min-h-[44px] sm:min-h-[52px] space-y-0.5">
+                              <div className="min-h-[44px] sm:min-h-[52px] space-y-0.5 relative z-20">
                                 {eventsForCell.map(event => (
                                   <div
                                     key={event.id}
