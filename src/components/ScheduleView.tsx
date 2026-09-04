@@ -38,9 +38,7 @@ export default function ScheduleView({ classId, className, title }: Props) {
   const [now, setNow] = useState(new Date());
   const [exporting, setExporting] = useState(false);
   
-  // Stanje za preklop med polnimi imeni in kraticami na računalniku
   const [showFullName, setShowFullName] = useState(true);
-  
   const [selectedItem, setSelectedItem] = useState<SelectedItemInfo | null>(null);
 
   const scheduleRef = useRef<HTMLDivElement>(null);
@@ -241,7 +239,6 @@ export default function ScheduleView({ classId, className, title }: Props) {
         </div>
 
         <div className="flex items-center gap-2">
-          {/* Gumb za preklop polna imena / kratice na računalniku */}
           <button
             onClick={() => setShowFullName(!showFullName)}
             className={`hidden sm:flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg transition font-medium ${
@@ -353,6 +350,7 @@ export default function ScheduleView({ classId, className, title }: Props) {
                           const activeBreak = getBreakForDate(dateStr);
                           const inSchoolYear = isDayInSchoolYear[day];
                           const eventsForCell = getEventsForPeriod(day, period);
+                          const active = isActivePeriod(day, period);
 
                           if (activeBreak) {
                             return (
@@ -384,10 +382,22 @@ export default function ScheduleView({ classId, className, title }: Props) {
 
                           const entry = getEntry(day, period.id);
                           const subject = entry ? getSubject(entry.subjectId) : null;
-                          const active = isActivePeriod(day, period);
 
                           return (
-                            <td key={day} className={`p-0.5 border-b border-r border-gray-100 ${active ? 'bg-blue-50/60' : ''}`}>
+                            <td 
+                              key={day} 
+                              className={`p-0.5 border-b border-r border-gray-100 relative ${
+                                active ? 'bg-blue-50/40' : ''
+                              }`}
+                            >
+                              {/* Pulzirajoča točka v zgornjem desnem kotu celice */}
+                              {active && (
+                                <span className="absolute top-1 right-1 flex h-2 w-2 z-20">
+                                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
+                                  <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-600"></span>
+                                </span>
+                              )}
+
                               <div className="min-h-[44px] sm:min-h-[52px] space-y-0.5">
                                 {eventsForCell.map(event => (
                                   <div
@@ -418,24 +428,15 @@ export default function ScheduleView({ classId, className, title }: Props) {
                                       room: entry?.room,
                                       color: subject.color
                                     })}
-                                    className={`w-full min-h-[44px] sm:min-h-[52px] rounded-md p-0.5 sm:p-1 text-center flex flex-col items-center justify-center cursor-pointer hover:opacity-90 transition relative group leading-tight overflow-hidden ${
-                                      active ? 'ring-2 ring-blue-600 bg-blue-100/90 shadow-md shadow-blue-300' : ''
-                                    }`}
+                                    className="w-full min-h-[44px] sm:min-h-[52px] rounded-md p-0.5 sm:p-1 text-center flex flex-col items-center justify-center cursor-pointer hover:opacity-90 transition relative group leading-tight overflow-hidden"
                                     style={{
-                                      backgroundColor: active ? undefined : subject.color + '18',
+                                      backgroundColor: subject.color + '18',
                                       borderLeft: `3px solid ${subject.color}`,
                                     }}
                                   >
-                                    {active && (
-                                      <span className="absolute -top-1 -right-1 flex h-2.5 w-2.5">
-                                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
-                                        <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-blue-600"></span>
-                                      </span>
-                                    )}
-                                    {/* Na mobilnih napravah vedno kratica, na računalniku odvisno od gumba showFullName */}
                                     <span
                                       className="w-full font-bold text-[10px] sm:text-xs leading-tight truncate px-0.5"
-                                      style={{ color: active ? '#1e40af' : subject.color }}
+                                      style={{ color: subject.color }}
                                     >
                                       <span className="sm:hidden">{subject.shortName}</span>
                                       <span className="hidden sm:inline">
