@@ -195,18 +195,20 @@ export default function ScheduleView({ classId, className, title }: Props) {
   };
 
   const todayStr = format(now, 'yyyy-MM-dd');
-  const todayDayIndex = weekDates.findIndex(d => format(d, 'yyyy-MM-dd') === todayStr);
-  const isTodayVisible = todayDayIndex >= 0;
-
+  
   const isActivePeriod = (day: number, period: Period): boolean => {
     if (period.isBreak) return false;
-    if (!isTodayVisible || day !== todayDayIndex) return false;
+    const cellDate = weekDates[day];
+    if (!cellDate) return false;
+    const isTodayColumn = format(cellDate, 'yyyy-MM-dd') === todayStr;
+    if (!isTodayColumn) return false;
+
     const nowMins = now.getHours() * 60 + now.getMinutes();
     return nowMins >= toMinutes(period.startTime) && nowMins < toMinutes(period.endTime);
   };
 
   const isPeriodActiveNow = (period: Period): boolean => {
-    if (period.isBreak || !isTodayVisible) return false;
+    if (period.isBreak) return false;
     const nowMins = now.getHours() * 60 + now.getMinutes();
     return nowMins >= toMinutes(period.startTime) && nowMins < toMinutes(period.endTime);
   };
@@ -296,7 +298,7 @@ export default function ScheduleView({ classId, className, title }: Props) {
                     </th>
                     {weekDates.map((date, i) => {
                       const dateStr = format(date, 'yyyy-MM-dd');
-                      const isToday = dateStr === format(new Date(), 'yyyy-MM-dd');
+                      const isToday = dateStr === todayStr;
                       const inSchoolYear = isDayInSchoolYear[i];
                       const events = timeEvents[i] || [];
                       const holiday = holidays.get(dateStr);
@@ -417,20 +419,23 @@ export default function ScheduleView({ classId, className, title }: Props) {
                                       color: subject.color
                                     })}
                                     className={`w-full min-h-[44px] sm:min-h-[52px] rounded-md p-0.5 sm:p-1 text-center flex flex-col items-center justify-center cursor-pointer hover:opacity-90 transition relative group leading-tight overflow-hidden ${
-                                      active ? 'ring-2 ring-blue-500 shadow-md shadow-blue-200' : ''
+                                      active ? 'ring-2 ring-blue-600 bg-blue-100/90 shadow-md shadow-blue-300' : ''
                                     }`}
                                     style={{
-                                      backgroundColor: subject.color + '18',
+                                      backgroundColor: active ? undefined : subject.color + '18',
                                       borderLeft: `3px solid ${subject.color}`,
                                     }}
                                   >
                                     {active && (
-                                      <span className="absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full bg-blue-600 animate-pulse"></span>
+                                      <span className="absolute -top-1 -right-1 flex h-2.5 w-2.5">
+                                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
+                                        <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-blue-600"></span>
+                                      </span>
                                     )}
                                     {/* Na mobilnih napravah vedno kratica, na računalniku odvisno od gumba showFullName */}
                                     <span
                                       className="w-full font-bold text-[10px] sm:text-xs leading-tight truncate px-0.5"
-                                      style={{ color: subject.color }}
+                                      style={{ color: active ? '#1e40af' : subject.color }}
                                     >
                                       <span className="sm:hidden">{subject.shortName}</span>
                                       <span className="hidden sm:inline">
