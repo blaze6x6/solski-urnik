@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { User, Student, SchoolClass, StudentNote } from '../types';
 import * as api from '../api';
 import { useMultipleAsync } from '../hooks/useAsync';
-import { GraduationCap, Calendar, Clock, StickyNote, ChevronDown, ChevronUp, Users, User as UserIcon } from 'lucide-react';
+import { GraduationCap, Calendar, Clock, StickyNote, ChevronDown, ChevronUp, Users, User as UserIcon, Bell, X, ArrowRight } from 'lucide-react';
 import ScheduleView from './ScheduleView';
 import { format } from 'date-fns';
 import { sl } from 'date-fns/locale';
@@ -21,6 +21,9 @@ export default function Dashboard({ user }: Props) {
 
   return (
     <div>
+      {/* Modalno opozorilo za neprebrana obvestila */}
+      <UnreadNotificationsModal />
+
       {/* Header with date/time */}
       <div className="bg-white rounded-xl shadow-sm p-5 mb-6">
         <div className="flex items-center justify-between flex-wrap gap-4">
@@ -51,6 +54,69 @@ export default function Dashboard({ user }: Props) {
 
       {/* Children schedules with filter */}
       <ChildrenSchedules user={user} />
+    </div>
+  );
+}
+
+function UnreadNotificationsModal() {
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [showModal, setShowModal] = useState(false);
+
+  useEffect(() => {
+    api.getNotifications()
+      .then((notifications: any[]) => {
+        const unread = notifications.filter(n => !n.read);
+        setUnreadCount(unread.length);
+
+        const hasShownSession = sessionStorage.getItem('unread_modal_shown');
+
+        if (unread.length > 0 && !hasShownSession) {
+          setShowModal(true);
+          sessionStorage.setItem('unread_modal_shown', 'true');
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  if (!showModal || unreadCount === 0) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fade-in">
+      <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 relative space-y-4 border border-gray-100 text-center">
+        <button
+          onClick={() => setShowModal(false)}
+          className="absolute top-4 right-4 p-2 text-gray-400 hover:bg-gray-100 rounded-full transition"
+        >
+          <X className="w-5 h-5" />
+        </button>
+
+        <div className="w-14 h-14 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-2 shadow-inner">
+          <Bell className="w-7 h-7 animate-bounce" />
+        </div>
+
+        <h3 className="text-xl font-bold text-gray-900">
+          Imate nova neprebrana obvestila!
+        </h3>
+
+        <p className="text-gray-600 text-sm leading-relaxed">
+          Sistem je zaznal <span className="font-bold text-blue-600">{unreadCount}</span> {unreadCount === 1 ? 'novo obvestilo' : unreadCount === 2 ? 'novi obvestili' : 'novih obvestil'}, ki čakajo na vaš pregled (spremembe urnikov ali dogodki).
+        </p>
+
+        <div className="pt-2 flex gap-3">
+          <button
+            onClick={() => setShowModal(false)}
+            className="flex-1 bg-gray-100 text-gray-700 py-2.5 rounded-xl font-medium hover:bg-gray-200 transition text-sm"
+          >
+            Kasneje
+          </button>
+          <button
+            onClick={() => setShowModal(false)}
+            className="flex-1 bg-blue-600 text-white py-2.5 rounded-xl font-medium hover:bg-blue-700 transition text-sm flex items-center justify-center gap-2 shadow-sm shadow-blue-200"
+          >
+            Razumem <ArrowRight className="w-4 h-4" />
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -101,7 +167,7 @@ function ChildrenSchedules({ user }: { user: User }) {
             activeFilter === 'all' ? 'bg-blue-600 text-white shadow-xs' : 'text-gray-600 hover:bg-gray-100'
           }`}
         >
-          <Users className="w-4 h-4" /> Vsi
+          <Users className="w-4 h-4" /> Vsi otroci hkrati
         </button>
         {children.map(child => (
           <button
