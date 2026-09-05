@@ -2,7 +2,7 @@ import { useState } from 'react';
 import * as api from '../api';
 import { useAsync } from '../hooks/useAsync';
 import { Subject } from '../types';
-import { Plus, Trash2, Edit2, Save, X, BookOpen } from 'lucide-react';
+import { Plus, Trash2, Edit2, Save, X, BookOpen, Palette } from 'lucide-react';
 
 const COLORS = [
   '#3B82F6', '#EF4444', '#10B981', '#F59E0B', '#8B5CF6',
@@ -94,17 +94,28 @@ export default function SubjectsPage() {
               className="px-3 py-2 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500"
               maxLength={4}
             />
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <span className="text-sm text-gray-600">Barva:</span>
-              <div className="flex gap-1 flex-wrap">
+              <div className="flex gap-1 flex-wrap items-center">
                 {COLORS.map(c => (
                   <button
                     key={c}
+                    type="button"
                     onClick={() => setForm({ ...form, color: c })}
                     className={`w-7 h-7 rounded-full transition ${form.color === c ? 'ring-2 ring-offset-2 ring-gray-400 scale-110' : 'hover:scale-110'}`}
                     style={{ backgroundColor: c }}
                   />
                 ))}
+                {/* Ročna izbira barve po meri */}
+                <label className="relative w-7 h-7 rounded-full overflow-hidden cursor-pointer border border-gray-300 hover:scale-110 transition flex items-center justify-center bg-gray-50" title="Izberi svojo barvo">
+                  <Palette className="w-3.5 h-3.5 text-gray-600 absolute pointer-events-none" />
+                  <input
+                    type="color"
+                    value={form.color}
+                    onChange={e => setForm({ ...form, color: e.target.value })}
+                    className="opacity-0 absolute inset-0 w-full h-full cursor-pointer"
+                  />
+                </label>
               </div>
             </div>
           </div>
@@ -145,15 +156,25 @@ export default function SubjectsPage() {
                     className="w-full px-2 py-1 border rounded"
                     maxLength={4}
                   />
-                  <div className="flex gap-1 flex-wrap">
+                  <div className="flex gap-1 flex-wrap items-center">
                     {COLORS.map(c => (
                       <button
                         key={c}
+                        type="button"
                         onClick={() => setForm({ ...form, color: c })}
                         className={`w-6 h-6 rounded-full ${form.color === c ? 'ring-2 ring-offset-1 ring-gray-400' : ''}`}
                         style={{ backgroundColor: c }}
                       />
                     ))}
+                    <label className="relative w-6 h-6 rounded-full overflow-hidden cursor-pointer border border-gray-300 hover:scale-110 transition flex items-center justify-center bg-gray-50" title="Izberi svojo barvo">
+                      <Palette className="w-3 h-3 text-gray-600 absolute pointer-events-none" />
+                      <input
+                        type="color"
+                        value={form.color}
+                        onChange={e => setForm({ ...form, color: e.target.value })}
+                        className="opacity-0 absolute inset-0 w-full h-full cursor-pointer"
+                      />
+                    </label>
                   </div>
                   <div className="flex gap-1">
                     <button onClick={() => handleUpdate(s.id)} disabled={saving} className="p-1.5 text-green-600 hover:bg-green-50 rounded disabled:opacity-50">
