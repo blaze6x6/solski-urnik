@@ -435,6 +435,7 @@ export default function ScheduleView({ classId, className, title }: Props) {
                                 {eventsForCell.map(event => (
                                   <div
                                     key={event.id}
+                                    title={`${event.title} (${event.startTime} - ${event.endTime})`}
                                     onClick={() => setSelectedItem({
                                       title: event.title,
                                       startTime: event.startTime,
@@ -453,6 +454,7 @@ export default function ScheduleView({ classId, className, title }: Props) {
                                 ))}
                                 {eventsForCell.length === 0 && subject ? (
                                   <div
+                                    title={`${subject.name} (${period.startTime} - ${period.endTime})${entry?.room ? ` | Učilnica: ${entry.room}` : ''}`}
                                     onClick={() => setSelectedItem({
                                       title: subject.name,
                                       subtitle: `Kratica: ${subject.shortName}`,
