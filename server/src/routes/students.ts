@@ -14,7 +14,14 @@ router.get('/', async (req, res) => {
       first_name: string;
       last_name: string;
       class_id: string;
-    }>('SELECT id, first_name, last_name, class_id FROM students ORDER BY last_name, first_name');
+      address: string | null;
+      postal_code: string | null;
+      city: string | null;
+      emso: string | null;
+      tax_number: string | null;
+      email: string | null;
+      phone: string | null;
+    }>('SELECT id, first_name, last_name, class_id, address, postal_code, city, emso, tax_number, email, phone FROM students ORDER BY last_name, first_name');
 
     const result = await Promise.all(
       students.map(async (s) => {
@@ -27,6 +34,13 @@ router.get('/', async (req, res) => {
           firstName: s.first_name,
           lastName: s.last_name,
           classId: s.class_id,
+          address: s.address || '',
+          postalCode: s.postal_code || '',
+          city: s.city || '',
+          emso: s.emso || '',
+          taxNumber: s.tax_number || '',
+          email: s.email || '',
+          phone: s.phone || '',
           parentIds: parents.map(p => p.parent_id),
         };
       })
@@ -48,7 +62,14 @@ router.get('/:id', async (req, res) => {
       first_name: string;
       last_name: string;
       class_id: string;
-    }>('SELECT id, first_name, last_name, class_id FROM students WHERE id = $1', [id]);
+      address: string | null;
+      postal_code: string | null;
+      city: string | null;
+      emso: string | null;
+      tax_number: string | null;
+      email: string | null;
+      phone: string | null;
+    }>('SELECT id, first_name, last_name, class_id, address, postal_code, city, emso, tax_number, email, phone FROM students WHERE id = $1', [id]);
 
     if (!student) {
       return res.status(404).json({ error: 'Učenec ne obstaja' });
@@ -64,6 +85,13 @@ router.get('/:id', async (req, res) => {
       firstName: student.first_name,
       lastName: student.last_name,
       classId: student.class_id,
+      address: student.address || '',
+      postalCode: student.postal_code || '',
+      city: student.city || '',
+      emso: student.emso || '',
+      taxNumber: student.tax_number || '',
+      email: student.email || '',
+      phone: student.phone || '',
       parentIds: parents.map(p => p.parent_id),
     });
   } catch (error) {
@@ -75,7 +103,7 @@ router.get('/:id', async (req, res) => {
 // Create student (admin only)
 router.post('/', adminMiddleware, async (req, res) => {
   try {
-    const { firstName, lastName, classId } = req.body;
+    const { firstName, lastName, classId, address, postalCode, city, emso, taxNumber, email, phone } = req.body;
 
     if (!firstName || !lastName || !classId) {
       return res.status(400).json({ error: 'Ime, priimek in razred so obvezni' });
@@ -86,9 +114,29 @@ router.post('/', adminMiddleware, async (req, res) => {
       first_name: string;
       last_name: string;
       class_id: string;
+      address: string | null;
+      postal_code: string | null;
+      city: string | null;
+      emso: string | null;
+      tax_number: string | null;
+      email: string | null;
+      phone: string | null;
     }>(
-      'INSERT INTO students (first_name, last_name, class_id) VALUES ($1, $2, $3) RETURNING id, first_name, last_name, class_id',
-      [firstName, lastName, classId]
+      `INSERT INTO students (first_name, last_name, class_id, address, postal_code, city, emso, tax_number, email, phone) 
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) 
+       RETURNING id, first_name, last_name, class_id, address, postal_code, city, emso, tax_number, email, phone`,
+      [
+        firstName, 
+        lastName, 
+        classId, 
+        address || null, 
+        postalCode || null, 
+        city || null, 
+        emso || null, 
+        taxNumber || null, 
+        email || null, 
+        phone || null
+      ]
     );
 
     res.status(201).json({
@@ -96,6 +144,13 @@ router.post('/', adminMiddleware, async (req, res) => {
       firstName: student!.first_name,
       lastName: student!.last_name,
       classId: student!.class_id,
+      address: student!.address || '',
+      postalCode: student!.postal_code || '',
+      city: student!.city || '',
+      emso: student!.emso || '',
+      taxNumber: student!.tax_number || '',
+      email: student!.email || '',
+      phone: student!.phone || '',
       parentIds: [],
     });
   } catch (error) {
@@ -108,22 +163,48 @@ router.post('/', adminMiddleware, async (req, res) => {
 router.put('/:id', adminMiddleware, async (req, res) => {
   try {
     const { id } = req.params;
-    const { firstName, lastName, classId } = req.body;
+    const { firstName, lastName, classId, address, postalCode, city, emso, taxNumber, email, phone } = req.body;
 
     const student = await queryOne<{
       id: string;
       first_name: string;
       last_name: string;
       class_id: string;
+      address: string | null;
+      postal_code: string | null;
+      city: string | null;
+      emso: string | null;
+      tax_number: string | null;
+      email: string | null;
+      phone: string | null;
     }>(
       `UPDATE students SET 
         first_name = COALESCE($1, first_name),
         last_name = COALESCE($2, last_name),
         class_id = COALESCE($3, class_id),
+        address = COALESCE($4, address),
+        postal_code = COALESCE($5, postal_code),
+        city = COALESCE($6, city),
+        emso = COALESCE($7, emso),
+        tax_number = COALESCE($8, tax_number),
+        email = COALESCE($9, email),
+        phone = COALESCE($10, phone),
         updated_at = NOW()
-       WHERE id = $4 
-       RETURNING id, first_name, last_name, class_id`,
-      [firstName || null, lastName || null, classId || null, id]
+       WHERE id = $11 
+       RETURNING id, first_name, last_name, class_id, address, postal_code, city, emso, tax_number, email, phone`,
+      [
+        firstName || null,
+        lastName || null,
+        classId || null,
+        address || null,
+        postalCode || null,
+        city || null,
+        emso || null,
+        taxNumber || null,
+        email || null,
+        phone || null,
+        id
+      ]
     );
 
     if (!student) {
@@ -140,6 +221,13 @@ router.put('/:id', adminMiddleware, async (req, res) => {
       firstName: student.first_name,
       lastName: student.last_name,
       classId: student.class_id,
+      address: student.address || '',
+      postalCode: student.postal_code || '',
+      city: student.city || '',
+      emso: student.emso || '',
+      taxNumber: student.tax_number || '',
+      email: student.email || '',
+      phone: student.phone || '',
       parentIds: parents.map(p => p.parent_id),
     });
   } catch (error) {
