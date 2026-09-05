@@ -31,6 +31,13 @@ CREATE TABLE IF NOT EXISTS students (
     first_name VARCHAR(100) NOT NULL,
     last_name VARCHAR(100) NOT NULL,
     class_id UUID REFERENCES classes(id) ON DELETE SET NULL,
+    address VARCHAR(255),
+    postal_code VARCHAR(20),
+    city VARCHAR(100),
+    emso VARCHAR(13),
+    tax_number VARCHAR(10),
+    email VARCHAR(255),
+    phone VARCHAR(50),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
