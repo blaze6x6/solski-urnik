@@ -2,7 +2,7 @@ import { useState } from 'react';
 import * as api from '../api';
 import { useMultipleAsync } from '../hooks/useAsync';
 import { Student, SchoolClass, User } from '../types';
-import { Plus, Trash2, Edit2, Save, X, GraduationCap, Search } from 'lucide-react';
+import { Plus, Trash2, Edit2, Save, X, GraduationCap, Search, Eye } from 'lucide-react';
 
 export default function StudentsPage() {
   const { data, loading, error, refresh } = useMultipleAsync({
@@ -14,7 +14,20 @@ export default function StudentsPage() {
   const [search, setSearch] = useState('');
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [form, setForm] = useState({ firstName: '', lastName: '', classId: '' });
+  const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
+  
+  const [form, setForm] = useState({
+    firstName: '',
+    lastName: '',
+    classId: '',
+    address: '',
+    postalCode: '',
+    city: '',
+    emso: '',
+    taxNumber: '',
+    email: '',
+    phone: '',
+  });
   const [saving, setSaving] = useState(false);
 
   if (loading) {
@@ -40,7 +53,18 @@ export default function StudentsPage() {
     setSaving(true);
     try {
       await api.createStudent(form);
-      setForm({ firstName: '', lastName: '', classId: classes?.[0]?.id || '' });
+      setForm({
+        firstName: '',
+        lastName: '',
+        classId: classes?.[0]?.id || '',
+        address: '',
+        postalCode: '',
+        city: '',
+        emso: '',
+        taxNumber: '',
+        email: '',
+        phone: '',
+      });
       setShowForm(false);
       refresh();
     } finally {
@@ -68,7 +92,18 @@ export default function StudentsPage() {
 
   const startEdit = (s: Student) => {
     setEditingId(s.id);
-    setForm({ firstName: s.firstName, lastName: s.lastName, classId: s.classId });
+    setForm({
+      firstName: s.firstName,
+      lastName: s.lastName,
+      classId: s.classId,
+      address: s.address || '',
+      postalCode: s.postalCode || '',
+      city: s.city || '',
+      emso: s.emso || '',
+      taxNumber: s.taxNumber || '',
+      email: s.email || '',
+      phone: s.phone || '',
+    });
   };
 
   const getClass = (id: string) => classes?.find((c: SchoolClass) => c.id === id);
@@ -79,7 +114,22 @@ export default function StudentsPage() {
       <div className="flex items-center justify-between mb-6 flex-wrap gap-4">
         <h1 className="text-2xl font-bold text-gray-800">Učenci</h1>
         <button
-          onClick={() => { setShowForm(!showForm); setEditingId(null); setForm({ firstName: '', lastName: '', classId: classes?.[0]?.id || '' }); }}
+          onClick={() => {
+            setShowForm(!showForm);
+            setEditingId(null);
+            setForm({
+              firstName: '',
+              lastName: '',
+              classId: classes?.[0]?.id || '',
+              address: '',
+              postalCode: '',
+              city: '',
+              emso: '',
+              taxNumber: '',
+              email: '',
+              phone: '',
+            });
+          }}
           className="bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700 transition flex items-center gap-2"
         >
           <Plus className="w-4 h-4" /> Dodaj učenca
@@ -100,7 +150,7 @@ export default function StudentsPage() {
       {showForm && (
         <div className="bg-white rounded-xl shadow-sm p-5 mb-4 border-l-4 border-blue-500">
           <h3 className="font-semibold text-gray-800 mb-3">Nov učenec</h3>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
             <input
               placeholder="Ime"
               value={form.firstName}
@@ -122,8 +172,50 @@ export default function StudentsPage() {
                 <option key={c.id} value={c.id}>{c.name}</option>
               ))}
             </select>
+            <input
+              placeholder="Naslov"
+              value={form.address}
+              onChange={e => setForm({ ...form, address: e.target.value })}
+              className="px-3 py-2 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            <input
+              placeholder="Poštna št."
+              value={form.postalCode}
+              onChange={e => setForm({ ...form, postalCode: e.target.value })}
+              className="px-3 py-2 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            <input
+              placeholder="Kraj"
+              value={form.city}
+              onChange={e => setForm({ ...form, city: e.target.value })}
+              className="px-3 py-2 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            <input
+              placeholder="EMŠO"
+              value={form.emso}
+              onChange={e => setForm({ ...form, emso: e.target.value })}
+              className="px-3 py-2 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            <input
+              placeholder="Davčna številka"
+              value={form.taxNumber}
+              onChange={e => setForm({ ...form, taxNumber: e.target.value })}
+              className="px-3 py-2 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            <input
+              placeholder="E-mail"
+              value={form.email}
+              onChange={e => setForm({ ...form, email: e.target.value })}
+              className="px-3 py-2 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            <input
+              placeholder="Telefonska številka"
+              value={form.phone}
+              onChange={e => setForm({ ...form, phone: e.target.value })}
+              className="px-3 py-2 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500"
+            />
           </div>
-          <div className="flex gap-2 mt-3">
+          <div className="flex gap-2 mt-4">
             <button
               onClick={handleCreate}
               disabled={saving}
@@ -180,7 +272,12 @@ export default function StudentsPage() {
                           />
                         </div>
                       ) : (
-                        <span className="font-medium text-gray-800">{s.firstName} {s.lastName}</span>
+                        <button
+                          onClick={() => setSelectedStudent(s)}
+                          className="font-medium text-blue-600 hover:underline text-left"
+                        >
+                          {s.firstName} {s.lastName}
+                        </button>
                       )}
                     </td>
                     <td className="px-5 py-3">
@@ -217,10 +314,13 @@ export default function StudentsPage() {
                         </div>
                       ) : (
                         <div className="flex justify-end gap-1">
-                          <button onClick={() => startEdit(s)} className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg">
+                          <button onClick={() => setSelectedStudent(s)} title="Podrobnosti" className="p-1.5 text-gray-600 hover:bg-gray-100 rounded-lg">
+                            <Eye className="w-4 h-4" />
+                          </button>
+                          <button onClick={() => startEdit(s)} title="Uredi" className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg">
                             <Edit2 className="w-4 h-4" />
                           </button>
-                          <button onClick={() => handleDelete(s.id)} className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg">
+                          <button onClick={() => handleDelete(s.id)} title="Izbriši" className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg">
                             <Trash2 className="w-4 h-4" />
                           </button>
                         </div>
@@ -233,6 +333,60 @@ export default function StudentsPage() {
           </table>
         )}
       </div>
+
+      {selectedStudent && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6 relative">
+            <button
+              onClick={() => setSelectedStudent(null)}
+              className="absolute top-4 right-4 text-gray-400 hover:text-gray-600"
+            >
+              <X className="w-5 h-5" />
+            </button>
+            <h2 className="text-xl font-bold text-gray-800 mb-4">
+              {selectedStudent.firstName} {selectedStudent.lastName}
+            </h2>
+            <div className="space-y-3 text-sm text-gray-600">
+              <div className="flex justify-between border-b pb-2">
+                <span className="font-semibold text-gray-700">Razred:</span>
+                <span>{getClass(selectedStudent.classId)?.name || '—'}</span>
+              </div>
+              <div className="flex justify-between border-b pb-2">
+                <span className="font-semibold text-gray-700">Naslov:</span>
+                <span>{selectedStudent.address || '—'}</span>
+              </div>
+              <div className="flex justify-between border-b pb-2">
+                <span className="font-semibold text-gray-700">Pošta in kraj:</span>
+                <span>{selectedStudent.postalCode} {selectedStudent.city}</span>
+              </div>
+              <div className="flex justify-between border-b pb-2">
+                <span className="font-semibold text-gray-700">EMŠO:</span>
+                <span>{selectedStudent.emso || '—'}</span>
+              </div>
+              <div className="flex justify-between border-b pb-2">
+                <span className="font-semibold text-gray-700">Davčna številka:</span>
+                <span>{selectedStudent.taxNumber || '—'}</span>
+              </div>
+              <div className="flex justify-between border-b pb-2">
+                <span className="font-semibold text-gray-700">E-mail:</span>
+                <span>{selectedStudent.email || '—'}</span>
+              </div>
+              <div className="flex justify-between pb-2">
+                <span className="font-semibold text-gray-700">Telefon:</span>
+                <span>{selectedStudent.phone || '—'}</span>
+              </div>
+            </div>
+            <div className="mt-6 flex justify-end">
+              <button
+                onClick={() => setSelectedStudent(null)}
+                className="bg-gray-100 text-gray-700 px-4 py-2 rounded-lg font-medium hover:bg-gray-200 transition"
+              >
+                Zapri
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
