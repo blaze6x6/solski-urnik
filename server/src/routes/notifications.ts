@@ -1,8 +1,10 @@
 import { Router } from 'express';
 import { query, queryOne, execute } from '../db.js';
 import { authMiddleware, AuthRequest } from '../auth.js';
+
 const router = Router();
 router.use(authMiddleware);
+
 // Get my notifications (latest 50)
 router.get('/', async (req: AuthRequest, res) => {
   try {
@@ -34,6 +36,7 @@ router.get('/', async (req: AuthRequest, res) => {
     res.status(500).json({ error: 'Napaka pri pridobivanju obvestil' });
   }
 });
+
 // Get unread count
 router.get('/unread-count', async (req: AuthRequest, res) => {
   try {
@@ -47,6 +50,21 @@ router.get('/unread-count', async (req: AuthRequest, res) => {
     res.status(500).json({ error: 'Napaka' });
   }
 });
+
+// Mark all as read (Postavljeno pred /:id zaradi pravilnega routanja)
+router.put('/read-all', async (req: AuthRequest, res) => {
+  try {
+    await execute(
+      'UPDATE notifications SET read = true WHERE user_id = $1 AND read = false',
+      [req.user!.userId]
+    );
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Mark all read error:', error);
+    res.status(500).json({ error: 'Napaka' });
+  }
+});
+
 // Mark one as read
 router.put('/:id/read', async (req: AuthRequest, res) => {
   try {
@@ -60,20 +78,22 @@ router.put('/:id/read', async (req: AuthRequest, res) => {
     res.status(500).json({ error: 'Napaka' });
   }
 });
-// Mark all as read
-router.put('/read-all', async (req: AuthRequest, res) => {
+
+// Delete all notifications for user (Postavljeno pred /:id)
+router.delete('/', async (req: AuthRequest, res) => {
   try {
     await execute(
-      'UPDATE notifications SET read = true WHERE user_id = $1 AND read = false',
+      'DELETE FROM notifications WHERE user_id = $1',
       [req.user!.userId]
     );
     res.json({ success: true });
   } catch (error) {
-    console.error('Mark all read error:', error);
-    res.status(500).json({ error: 'Napaka' });
+    console.error('Delete all notifications error:', error);
+    res.status(500).json({ error: 'Napaka pri brisanju vseh obvestil' });
   }
 });
-// Delete one
+
+// Delete one (Dinamični /:id je sedaj varno na koncu)
 router.delete('/:id', async (req: AuthRequest, res) => {
   try {
     await execute(
@@ -86,4 +106,5 @@ router.delete('/:id', async (req: AuthRequest, res) => {
     res.status(500).json({ error: 'Napaka' });
   }
 });
+
 export default router;
