@@ -93,9 +93,9 @@ export default function StudentsPage() {
   const startEdit = (s: Student) => {
     setEditingId(s.id);
     setForm({
-      firstName: s.firstName,
-      lastName: s.lastName,
-      classId: s.classId,
+      firstName: s.firstName || '',
+      lastName: s.lastName || '',
+      classId: s.classId || '',
       address: s.address || '',
       postalCode: s.postalCode || '',
       city: s.city || '',
@@ -334,9 +334,10 @@ export default function StudentsPage() {
         )}
       </div>
 
+      {/* Modal za urejanje ali pregled podrobnosti */}
       {selectedStudent && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6 relative">
+          <div className="bg-white rounded-xl shadow-xl max-w-lg w-full p-6 relative max-h-[90vh] overflow-y-auto">
             <button
               onClick={() => setSelectedStudent(null)}
               className="absolute top-4 right-4 text-gray-400 hover:text-gray-600"
@@ -344,46 +345,171 @@ export default function StudentsPage() {
               <X className="w-5 h-5" />
             </button>
             <h2 className="text-xl font-bold text-gray-800 mb-4">
-              {selectedStudent.firstName} {selectedStudent.lastName}
+              {editingId === selectedStudent.id ? 'Uredi učenca' : `${selectedStudent.firstName} ${selectedStudent.lastName}`}
             </h2>
-            <div className="space-y-3 text-sm text-gray-600">
-              <div className="flex justify-between border-b pb-2">
-                <span className="font-semibold text-gray-700">Razred:</span>
-                <span>{getClass(selectedStudent.classId)?.name || '—'}</span>
+
+            {editingId === selectedStudent.id ? (
+              <div className="space-y-3">
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="text-xs text-gray-500">Ime</label>
+                    <input
+                      value={form.firstName}
+                      onChange={e => setForm({ ...form, firstName: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs text-gray-500">Priimek</label>
+                    <input
+                      value={form.lastName}
+                      onChange={e => setForm({ ...form, lastName: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="text-xs text-gray-500">Razred</label>
+                  <select
+                    value={form.classId}
+                    onChange={e => setForm({ ...form, classId: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    {classes?.map((c: SchoolClass) => (
+                      <option key={c.id} value={c.id}>{c.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs text-gray-500">Naslov</label>
+                  <input
+                    value={form.address}
+                    onChange={e => setForm({ ...form, address: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="text-xs text-gray-500">Poštna št.</label>
+                    <input
+                      value={form.postalCode}
+                      onChange={e => setForm({ ...form, postalCode: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs text-gray-500">Kraj</label>
+                    <input
+                      value={form.city}
+                      onChange={e => setForm({ ...form, city: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="text-xs text-gray-500">EMŠO</label>
+                    <input
+                      value={form.emso}
+                      onChange={e => setForm({ ...form, emso: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs text-gray-500">Davčna številka</label>
+                    <input
+                      value={form.taxNumber}
+                      onChange={e => setForm({ ...form, taxNumber: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="text-xs text-gray-500">E-mail</label>
+                    <input
+                      value={form.email}
+                      onChange={e => setForm({ ...form, email: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs text-gray-500">Telefon</label>
+                    <input
+                      value={form.phone}
+                      onChange={e => setForm({ ...form, phone: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                </div>
+
+                <div className="mt-6 flex justify-end gap-2">
+                  <button
+                    onClick={() => {
+                      handleUpdate(selectedStudent.id);
+                      setSelectedStudent(null);
+                    }}
+                    disabled={saving}
+                    className="bg-green-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-green-700 transition"
+                  >
+                    Shrani spremembe
+                  </button>
+                  <button
+                    onClick={() => setEditingId(null)}
+                    className="bg-gray-100 text-gray-700 px-4 py-2 rounded-lg font-medium hover:bg-gray-200 transition"
+                  >
+                    Prekliči
+                  </button>
+                </div>
               </div>
-              <div className="flex justify-between border-b pb-2">
-                <span className="font-semibold text-gray-700">Naslov:</span>
-                <span>{selectedStudent.address || '—'}</span>
+            ) : (
+              <div>
+                <div className="space-y-3 text-sm text-gray-600">
+                  <div className="flex justify-between border-b pb-2">
+                    <span className="font-semibold text-gray-700">Razred:</span>
+                    <span>{getClass(selectedStudent.classId)?.name || '—'}</span>
+                  </div>
+                  <div className="flex justify-between border-b pb-2">
+                    <span className="font-semibold text-gray-700">Naslov:</span>
+                    <span>{selectedStudent.address || '—'}</span>
+                  </div>
+                  <div className="flex justify-between border-b pb-2">
+                    <span className="font-semibold text-gray-700">Pošta in kraj:</span>
+                    <span>{selectedStudent.postalCode} {selectedStudent.city}</span>
+                  </div>
+                  <div className="flex justify-between border-b pb-2">
+                    <span className="font-semibold text-gray-700">EMŠO:</span>
+                    <span>{selectedStudent.emso || '—'}</span>
+                  </div>
+                  <div className="flex justify-between border-b pb-2">
+                    <span className="font-semibold text-gray-700">Davčna številka:</span>
+                    <span>{selectedStudent.taxNumber || '—'}</span>
+                  </div>
+                  <div className="flex justify-between border-b pb-2">
+                    <span className="font-semibold text-gray-700">E-mail:</span>
+                    <span>{selectedStudent.email || '—'}</span>
+                  </div>
+                  <div className="flex justify-between pb-2">
+                    <span className="font-semibold text-gray-700">Telefon:</span>
+                    <span>{selectedStudent.phone || '—'}</span>
+                  </div>
+                </div>
+                <div className="mt-6 flex justify-between">
+                  <button
+                    onClick={() => startEdit(selectedStudent)}
+                    className="bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700 transition flex items-center gap-1"
+                  >
+                    <Edit2 className="w-4 h-4" /> Uredi podatke
+                  </button>
+                  <button
+                    onClick={() => setSelectedStudent(null)}
+                    className="bg-gray-100 text-gray-700 px-4 py-2 rounded-lg font-medium hover:bg-gray-200 transition"
+                  >
+                    Zapri
+                  </button>
+                </div>
               </div>
-              <div className="flex justify-between border-b pb-2">
-                <span className="font-semibold text-gray-700">Pošta in kraj:</span>
-                <span>{selectedStudent.postalCode} {selectedStudent.city}</span>
-              </div>
-              <div className="flex justify-between border-b pb-2">
-                <span className="font-semibold text-gray-700">EMŠO:</span>
-                <span>{selectedStudent.emso || '—'}</span>
-              </div>
-              <div className="flex justify-between border-b pb-2">
-                <span className="font-semibold text-gray-700">Davčna številka:</span>
-                <span>{selectedStudent.taxNumber || '—'}</span>
-              </div>
-              <div className="flex justify-between border-b pb-2">
-                <span className="font-semibold text-gray-700">E-mail:</span>
-                <span>{selectedStudent.email || '—'}</span>
-              </div>
-              <div className="flex justify-between pb-2">
-                <span className="font-semibold text-gray-700">Telefon:</span>
-                <span>{selectedStudent.phone || '—'}</span>
-              </div>
-            </div>
-            <div className="mt-6 flex justify-end">
-              <button
-                onClick={() => setSelectedStudent(null)}
-                className="bg-gray-100 text-gray-700 px-4 py-2 rounded-lg font-medium hover:bg-gray-200 transition"
-              >
-                Zapri
-              </button>
-            </div>
+            )}
           </div>
         </div>
       )}
