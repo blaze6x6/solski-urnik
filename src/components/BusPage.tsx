@@ -1,20 +1,19 @@
 import { useState } from 'react';
 import * as api from '../api';
 import { useAsync } from '../hooks/useAsync';
-import { Subject } from '../types';
-import { Plus, Trash2, Edit2, Save, X, BookOpen, Palette } from 'lucide-react';
+import { BusRide } from '../types';
+import { Plus, Trash2, Edit2, Save, X, ArrowRight } from 'lucide-react';
 
-const COLORS = [
-  '#3B82F6', '#EF4444', '#10B981', '#F59E0B', '#8B5CF6',
-  '#EC4899', '#F97316', '#06B6D4', '#6366F1', '#84CC16',
-  '#14B8A6', '#D946EF', '#0EA5E9', '#F43F5E',
-];
-
-export default function SubjectsPage() {
-  const { data: subjects, loading, error, refresh } = useAsync(api.getSubjects);
+export default function BusPage() {
+  const { data: rides, loading, error, refresh } = useAsync(api.getBusRides);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [form, setForm] = useState({ name: '', shortName: '', color: COLORS[0] });
+  const [form, setForm] = useState({
+    direction: 'to_school' as 'to_school' | 'from_school',
+    departureTime: '07:00',
+    arrivalTime: '07:30',
+    label: '',
+  });
   const [saving, setSaving] = useState(false);
 
   if (loading) {
@@ -29,188 +28,236 @@ export default function SubjectsPage() {
     return <div className="bg-red-50 text-red-600 p-4 rounded-xl">Napaka: {error}</div>;
   }
 
+  const toSchool = rides?.filter(r => r.direction === 'to_school') || [];
+  const fromSchool = rides?.filter(r => r.direction === 'from_school') || [];
+
   const handleCreate = async () => {
-    if (!form.name.trim() || !form.shortName.trim()) return;
+    if (!form.departureTime || !form.arrivalTime) return;
     setSaving(true);
     try {
-      await api.createSubject(form);
-      setForm({ name: '', shortName: '', color: COLORS[0] });
+      await api.createBusRide({
+        direction: form.direction,
+        departureTime: form.departureTime,
+        arrivalTime: form.arrivalTime,
+        label: form.label || undefined,
+      });
+      setForm({ direction: 'to_school', departureTime: '07:00', arrivalTime: '07:30', label: '' });
       setShowForm(false);
       refresh();
-    } finally {
-      setSaving(false);
+    } finally { 
+      setSaving(false); 
     }
   };
 
   const handleUpdate = async (id: string) => {
     setSaving(true);
     try {
-      await api.updateSubject(id, form);
+      await api.updateBusRide(id, {
+        direction: form.direction,
+        departureTime: form.departureTime,
+        arrivalTime: form.arrivalTime,
+        label: form.label || undefined,
+      });
       setEditingId(null);
       refresh();
-    } finally {
-      setSaving(false);
+    } finally { 
+      setSaving(false); 
     }
   };
 
   const handleDelete = async (id: string) => {
-    if (confirm('Ali ste prepričani? To bo izbrisalo tudi vnose urnika za ta predmet.')) {
-      await api.deleteSubject(id);
+    if (confirm('Ali ste prepričani?')) {
+      await api.deleteBusRide(id);
       refresh();
     }
   };
 
-  const startEdit = (s: Subject) => {
-    setEditingId(s.id);
-    setForm({ name: s.name, shortName: s.shortName, color: s.color });
+  const startEdit = (ride: BusRide) => {
+    setEditingId(ride.id);
+    setForm({
+      direction: ride.direction,
+      departureTime: ride.departureTime,
+      arrivalTime: ride.arrivalTime,
+      label: ride.label || '',
+    });
   };
+
+  const renderRideTable = (rideList: BusRide[], title: string, icon: string, bgColor: string, textColor: string) => (
+    <div className="bg-white rounded-xl shadow-sm overflow-hidden">
+      <div className={`px-4 py-3 ${bgColor} border-b flex items-center gap-2`}>
+        <span className="text-lg">{icon}</span>
+        <h3 className={`text-sm font-semibold ${textColor}`}>{title}</h3>
+        <span className={`text-xs ${textColor} opacity-70`}>({rideList.length} {rideList.length === 1 ? 'vožnja' : rideList.length === 2 ? 'vožnji' : rideList.length <= 4 ? 'vožnje' : 'voženj'})</span>
+      </div>
+      {rideList.length === 0 ? (
+        <div className="p-6 text-center text-gray-400 text-sm">Ni voženj.</div>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[320px]">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-3 py-2 text-left text-xs sm:text-sm font-semibold text-gray-600">Oznaka</th>
+                <th className="px-3 py-2 text-left text-xs sm:text-sm font-semibold text-gray-600">Odhod</th>
+                <th className="px-2 py-2 text-center text-xs sm:text-sm font-semibold text-gray-400"></th>
+                <th className="px-3 py-2 text-left text-xs sm:text-sm font-semibold text-gray-600">Prihod</th>
+                <th className="px-3 py-2 text-left text-xs sm:text-sm font-semibold text-gray-600">Trajanje</th>
+                <th className="px-3 py-2 text-right text-xs sm:text-sm font-semibold text-gray-600 w-16"></th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {rideList.map((ride, idx) => {
+                const isEditing = editingId === ride.id;
+                const [dh, dm] = ride.departureTime.split(':').map(Number);
+                const [ah, am] = ride.arrivalTime.split(':').map(Number);
+                const duration = (ah * 60 + am) - (dh * 60 + dm);
+                return (
+                  <tr key={ride.id} className="hover:bg-gray-50">
+                    {isEditing ? (
+                      <>
+                        <td className="px-3 py-2">
+                          <input
+                            value={form.label}
+                            onChange={e => setForm({ ...form, label: e.target.value })}
+                            placeholder={`${idx + 1}. vožnja`}
+                            className="px-2 py-1 border rounded w-24 sm:w-28 text-xs sm:text-sm"
+                          />
+                        </td>
+                        <td className="px-3 py-2">
+                          <input
+                            type="time"
+                            value={form.departureTime}
+                            onChange={e => setForm({ ...form, departureTime: e.target.value })}
+                            className="px-2 py-1 border rounded text-xs sm:text-sm w-24 sm:w-auto"
+                          />
+                        </td>
+                        <td className="px-2 py-2 text-center">
+                          <ArrowRight className="w-3.5 h-3.5 text-gray-300 mx-auto" />
+                        </td>
+                        <td className="px-3 py-2">
+                          <input
+                            type="time"
+                            value={form.arrivalTime}
+                            onChange={e => setForm({ ...form, arrivalTime: e.target.value })}
+                            className="px-2 py-1 border rounded text-xs sm:text-sm w-24 sm:w-auto"
+                          />
+                        </td>
+                        <td className="px-3 py-2"></td>
+                        <td className="px-3 py-2 text-right">
+                          <div className="flex justify-end gap-1">
+                            <button onClick={() => handleUpdate(ride.id)} disabled={saving} className="p-1 text-green-600 hover:bg-green-50 rounded disabled:opacity-50">
+                              <Save className="w-4 h-4" />
+                            </button>
+                            <button onClick={() => setEditingId(null)} className="p-1 text-gray-400 hover:bg-gray-100 rounded">
+                              <X className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </td>
+                      </>
+                    ) : (
+                      <>
+                        <td className="px-3 py-2 text-xs sm:text-sm font-medium text-gray-800">
+                          {ride.label || `${idx + 1}. vožnja`}
+                        </td>
+                        <td className="px-3 py-2 text-xs sm:text-sm font-mono text-gray-700">{ride.departureTime}</td>
+                        <td className="px-2 py-2 text-center">
+                          <ArrowRight className="w-3.5 h-3.5 text-gray-300 mx-auto" />
+                        </td>
+                        <td className="px-3 py-2 text-xs sm:text-sm font-mono text-gray-700">{ride.arrivalTime}</td>
+                        <td className="px-3 py-2 text-xs sm:text-sm text-gray-400">{duration > 0 ? `${duration} min` : ''}</td>
+                        <td className="px-3 py-2 text-right">
+                          <div className="flex justify-end gap-1">
+                            <button onClick={() => startEdit(ride)} className="p-1.5 text-blue-600 hover:bg-blue-50 rounded">
+                              <Edit2 className="w-4 h-4" />
+                            </button>
+                            <button onClick={() => handleDelete(ride.id)} className="p-1.5 text-red-600 hover:bg-red-50 rounded">
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </td>
+                      </>
+                    )}
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
 
   return (
     <div>
       <div className="flex items-center justify-between mb-6 flex-wrap gap-4">
-        <h1 className="text-2xl font-bold text-gray-800">Predmeti</h1>
+        <div>
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-800">Vozni red šolskega avtobusa</h1>
+          <p className="text-gray-500 text-xs sm:text-sm mt-1">Enak vsak šolski dan</p>
+        </div>
         <button
           onClick={() => { setShowForm(!showForm); setEditingId(null); }}
-          className="bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700 transition flex items-center gap-2"
+          className="bg-blue-600 text-white px-3 sm:px-4 py-2 rounded-lg font-medium hover:bg-blue-700 transition flex items-center gap-2 text-sm"
         >
-          <Plus className="w-4 h-4" /> Dodaj predmet
+          <Plus className="w-4 h-4" /> Dodaj vožnjo
         </button>
       </div>
 
       {showForm && (
-        <div className="bg-white rounded-xl shadow-sm p-5 mb-4 border-l-4 border-purple-500">
-          <h3 className="font-semibold text-gray-800 mb-3">Nov predmet</h3>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-3">
-            <input
-              placeholder="Ime predmeta"
-              value={form.name}
-              onChange={e => setForm({ ...form, name: e.target.value })}
-              className="px-3 py-2 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500"
-            />
-            <input
-              placeholder="Kratko ime (npr. MAT)"
-              value={form.shortName}
-              onChange={e => setForm({ ...form, shortName: e.target.value.toUpperCase() })}
-              className="px-3 py-2 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500"
-              maxLength={4}
-            />
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-sm text-gray-600">Barva:</span>
-              <div className="flex gap-1 flex-wrap items-center">
-                {COLORS.map(c => (
-                  <button
-                    key={c}
-                    type="button"
-                    onClick={() => setForm({ ...form, color: c })}
-                    className={`w-7 h-7 rounded-full transition ${form.color === c ? 'ring-2 ring-offset-2 ring-gray-400 scale-110' : 'hover:scale-110'}`}
-                    style={{ backgroundColor: c }}
-                  />
-                ))}
-                {/* Ročna izbira barve po meri */}
-                <label className="relative w-7 h-7 rounded-full overflow-hidden cursor-pointer border border-gray-300 hover:scale-110 transition flex items-center justify-center bg-gray-50" title="Izberi svojo barvo">
-                  <Palette className="w-3.5 h-3.5 text-gray-600 absolute pointer-events-none" />
-                  <input
-                    type="color"
-                    value={form.color}
-                    onChange={e => setForm({ ...form, color: e.target.value })}
-                    className="opacity-0 absolute inset-0 w-full h-full cursor-pointer"
-                  />
-                </label>
-              </div>
+        <div className="bg-white rounded-xl shadow-sm p-4 sm:p-5 mb-4 border-l-4 border-blue-500">
+          <h3 className="font-semibold text-gray-800 mb-3 text-sm sm:text-base">Nova vožnja</h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 items-end">
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">Smer</label>
+              <select
+                value={form.direction}
+                onChange={e => setForm({ ...form, direction: e.target.value as 'to_school' | 'from_school' })}
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+              >
+                <option value="to_school">🏫 V šolo</option>
+                <option value="from_school">🏠 Iz šole</option>
+              </select>
             </div>
-          </div>
-          <div className="flex gap-2">
-            <button onClick={handleCreate} disabled={saving} className="bg-green-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-green-700 transition flex items-center gap-1 disabled:opacity-50">
-              <Save className="w-4 h-4" /> Shrani
-            </button>
-            <button onClick={() => setShowForm(false)} className="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg font-medium hover:bg-gray-300 transition flex items-center gap-1">
-              <X className="w-4 h-4" /> Prekliči
-            </button>
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">Odhod</label>
+              <input
+                type="time"
+                value={form.departureTime}
+                onChange={e => setForm({ ...form, departureTime: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+              />
+            </div>
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">Prihod</label>
+              <input
+                type="time"
+                value={form.arrivalTime}
+                onChange={e => setForm({ ...form, arrivalTime: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+              />
+            </div>
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">Oznaka (neobvezno)</label>
+              <input
+                value={form.label}
+                onChange={e => setForm({ ...form, label: e.target.value })}
+                placeholder="npr. 1. vožnja"
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+              />
+            </div>
+            <div className="flex gap-2 pt-1 sm:pt-0">
+              <button onClick={handleCreate} disabled={saving} className="flex-1 sm:flex-none bg-green-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-green-700 transition flex items-center justify-center gap-1 disabled:opacity-50 text-sm">
+                <Save className="w-4 h-4" /> Shrani
+              </button>
+              <button onClick={() => setShowForm(false)} className="bg-gray-200 text-gray-700 px-3 py-2 rounded-lg font-medium hover:bg-gray-300 transition">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
           </div>
         </div>
       )}
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        {!subjects || subjects.length === 0 ? (
-          <div className="col-span-full p-10 text-center text-gray-500 bg-white rounded-xl shadow-sm">
-            <BookOpen className="w-12 h-12 mx-auto mb-3 text-gray-300" />
-            <p>Ni predmetov.</p>
-          </div>
-        ) : (
-          subjects.map((s: Subject) => (
-            <div
-              key={s.id}
-              className="bg-white rounded-xl shadow-sm p-4 border-l-4"
-              style={{ borderLeftColor: s.color }}
-            >
-              {editingId === s.id ? (
-                <div className="space-y-2">
-                  <input
-                    value={form.name}
-                    onChange={e => setForm({ ...form, name: e.target.value })}
-                    className="w-full px-2 py-1 border rounded"
-                  />
-                  <input
-                    value={form.shortName}
-                    onChange={e => setForm({ ...form, shortName: e.target.value.toUpperCase() })}
-                    className="w-full px-2 py-1 border rounded"
-                    maxLength={4}
-                  />
-                  <div className="flex gap-1 flex-wrap items-center">
-                    {COLORS.map(c => (
-                      <button
-                        key={c}
-                        type="button"
-                        onClick={() => setForm({ ...form, color: c })}
-                        className={`w-6 h-6 rounded-full ${form.color === c ? 'ring-2 ring-offset-1 ring-gray-400' : ''}`}
-                        style={{ backgroundColor: c }}
-                      />
-                    ))}
-                    <label className="relative w-6 h-6 rounded-full overflow-hidden cursor-pointer border border-gray-300 hover:scale-110 transition flex items-center justify-center bg-gray-50" title="Izberi svojo barvo">
-                      <Palette className="w-3 h-3 text-gray-600 absolute pointer-events-none" />
-                      <input
-                        type="color"
-                        value={form.color}
-                        onChange={e => setForm({ ...form, color: e.target.value })}
-                        className="opacity-0 absolute inset-0 w-full h-full cursor-pointer"
-                      />
-                    </label>
-                  </div>
-                  <div className="flex gap-1">
-                    <button onClick={() => handleUpdate(s.id)} disabled={saving} className="p-1.5 text-green-600 hover:bg-green-50 rounded disabled:opacity-50">
-                      <Save className="w-4 h-4" />
-                    </button>
-                    <button onClick={() => setEditingId(null)} className="p-1.5 text-gray-400 hover:bg-gray-100 rounded">
-                      <X className="w-4 h-4" />
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <div className="flex items-center justify-between">
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <span
-                        className="inline-flex w-8 h-8 rounded-lg items-center justify-center text-white font-bold text-xs"
-                        style={{ backgroundColor: s.color }}
-                      >
-                        {s.shortName}
-                      </span>
-                      <span className="font-semibold text-gray-800">{s.name}</span>
-                    </div>
-                  </div>
-                  <div className="flex gap-1">
-                    <button onClick={() => startEdit(s)} className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg">
-                      <Edit2 className="w-4 h-4" />
-                    </button>
-                    <button onClick={() => handleDelete(s.id)} className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg">
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-          ))
-        )}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {renderRideTable(toSchool, 'V šolo', '🏫', 'bg-blue-50', 'text-blue-800')}
+        {renderRideTable(fromSchool, 'Iz šole', '🏠', 'bg-green-50', 'text-green-800')}
       </div>
     </div>
   );
