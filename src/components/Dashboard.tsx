@@ -102,16 +102,10 @@ function UnreadNotificationsModal() {
           Sistem je zaznal <span className="font-bold text-blue-600">{unreadCount}</span> {unreadCount === 1 ? 'novo obvestilo' : unreadCount === 2 ? 'novi obvestili' : 'novih obvestil'}, ki čakajo na vaš pregled (spremembe urnikov ali dogodki).
         </p>
 
-        <div className="pt-2 flex gap-3">
+        <div className="pt-2 flex justify-center">
           <button
             onClick={() => setShowModal(false)}
-            className="flex-1 bg-gray-100 text-gray-700 py-2.5 rounded-xl font-medium hover:bg-gray-200 transition text-sm"
-          >
-            Kasneje
-          </button>
-          <button
-            onClick={() => setShowModal(false)}
-            className="flex-1 bg-blue-600 text-white py-2.5 rounded-xl font-medium hover:bg-blue-700 transition text-sm flex items-center justify-center gap-2 shadow-sm shadow-blue-200"
+            className="px-6 bg-blue-600 text-white py-2.5 rounded-xl font-medium hover:bg-blue-700 transition text-sm flex items-center justify-center gap-2 shadow-sm shadow-blue-200"
           >
             Razumem <ArrowRight className="w-4 h-4" />
           </button>
