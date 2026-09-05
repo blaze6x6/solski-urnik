@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import * as api from '../api';
 import { CalendarEvent, Recurrence, EventReminder } from '../types';
 import { Plus, Trash2, Edit2, Save, X, CalendarDays, ChevronLeft, ChevronRight, Clock, Repeat, Bell } from 'lucide-react';
@@ -42,7 +42,6 @@ const emptyForm = (): FormState => ({
 });
 const DAYS_SL = ['Pon', 'Tor', 'Sre', 'Čet', 'Pet', 'Sob', 'Ned'];
 
-// Slovenian public holidays (fixed dates + Easter-based)
 import { getSlovenianHolidays } from '../holidays';
 
 export default function CalendarPage() {
@@ -56,6 +55,36 @@ export default function CalendarPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<FormState>(emptyForm());
   const [saving, setSaving] = useState(false);
+
+  // Spremenljivke za zaznavanje potega (swipe)
+  const touchStartX = useRef<number | null>(null);
+  const touchEndX = useRef<number | null>(null);
+  const minSwipeDistance = 50; // Minimalna razdalja v pikslih za zaznavo potega
+
+  const onTouchStart = (e: React.TouchEvent) => {
+    touchEndX.current = null;
+    touchStartX.current = e.targetTouches[0].clientX;
+  };
+
+  const onTouchMove = (e: React.TouchEvent) => {
+    touchEndX.current = e.targetTouches[0].clientX;
+  };
+
+  const onTouchEnd = () => {
+    if (!touchStartX.current || !touchEndX.current) return;
+    const distance = touchStartX.current - touchEndX.current;
+    const isLeftSwipe = distance > minSwipeDistance;
+    const isRightSwipe = distance < -minSwipeDistance;
+
+    if (isLeftSwipe) {
+      // Poteg v levo -> naslednji mesec
+      setCurrentMonth(addMonths(currentMonth, 1));
+    } else if (isRightSwipe) {
+      // Poteg v desno -> prejšnji mesec
+      setCurrentMonth(subMonths(currentMonth, 1));
+    }
+  };
+
   const refresh = () => {
     api.getCalendarEvents().then(setEvents).finally(() => setLoading(false));
   };
@@ -66,7 +95,7 @@ export default function CalendarPage() {
       api.getCalendarEventsForDate(selectedDate).then(setDayEvents).finally(() => setDayLoading(false));
     }
   }, [selectedDate, events]);
-  // Build calendar grid
+
   const calendarDays = useMemo(() => {
     const monthStart = startOfMonth(currentMonth);
     const monthEnd = endOfMonth(currentMonth);
@@ -79,7 +108,7 @@ export default function CalendarPage() {
     }
     return days;
   }, [currentMonth]);
-  // Count events per day (simple: check master list for matching dates)
+
   const eventCountForDay = (date: Date): number => {
     const dateStr = format(date, 'yyyy-MM-dd');
     return events.filter(e => {
@@ -93,6 +122,7 @@ export default function CalendarPage() {
       return false;
     }).length;
   };
+
   const validate = () => {
     if (!form.title.trim() || !form.date || !form.startTime || !form.endTime) return false;
     if (form.startTime >= form.endTime) { alert('Ura začetka mora biti pred uro konca.'); return false; }
@@ -100,6 +130,7 @@ export default function CalendarPage() {
     if (form.recurrence === 'range' && form.endDate < form.date) { alert('Končni datum mora biti po začetnem.'); return false; }
     return true;
   };
+
   const handleCreate = async () => {
     if (!validate()) return;
     setSaving(true);
@@ -114,6 +145,7 @@ export default function CalendarPage() {
       setForm(emptyForm()); setShowForm(false); refresh();
     } finally { setSaving(false); }
   };
+
   const handleUpdate = async (id: string) => {
     if (!validate()) return;
     setSaving(true);
@@ -128,26 +160,27 @@ export default function CalendarPage() {
       setEditingId(null); refresh();
     } finally { setSaving(false); }
   };
+
   const handleDelete = async (id: string) => {
     if (confirm('Ali ste prepričani?')) { await api.deleteCalendarEvent(id); refresh(); }
   };
+
   const startEdit = (e: CalendarEvent) => {
     setEditingId(e.id);
     setForm({ title: e.title, color: e.color, date: e.date, endDate: e.endDate || '', startTime: e.startTime, endTime: e.endTime, recurrence: e.recurrence, note: e.note || '', reminders: e.reminders || [] });
   };
   const today = format(new Date(), 'yyyy-MM-dd');
 
-  // Holidays for displayed year(s)
   const holidays = useMemo(() => {
     const year = currentMonth.getFullYear();
     const map = getSlovenianHolidays(year);
-    // Also get next/prev year in case grid spans year boundary
     const prev = getSlovenianHolidays(year - 1);
     const next = getSlovenianHolidays(year + 1);
     prev.forEach((v, k) => map.set(k, v));
     next.forEach((v, k) => map.set(k, v));
     return map;
   }, [currentMonth]);
+
   return (
     <div>
       <div className="flex items-center justify-between mb-6 flex-wrap gap-4">
@@ -162,17 +195,22 @@ export default function CalendarPage() {
           <Plus className="w-4 h-4" /> Dodaj dogodek
         </button>
       </div>
-      {/* Create form */}
+
       {showForm && (
         <div className="bg-white rounded-xl shadow-sm p-5 mb-6 border-l-4 border-blue-500">
           <h3 className="font-semibold text-gray-800 mb-3">Nov koledarski dogodek</h3>
           <EventForm form={form} setForm={setForm} saving={saving} onSave={handleCreate} onCancel={() => setShowForm(false)} />
         </div>
       )}
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Calendar grid */}
-        <div className="lg:col-span-2 bg-white rounded-xl shadow-sm overflow-hidden">
-          {/* Month nav */}
+        {/* Calendar grid z dodanimi touch dogodki za poteg */}
+        <div 
+          className="lg:col-span-2 bg-white rounded-xl shadow-sm overflow-hidden select-none"
+          onTouchStart={onTouchStart}
+          onTouchMove={onTouchMove}
+          onTouchEnd={onTouchEnd}
+        >
           <div className="flex items-center justify-between px-4 py-3 bg-blue-50 border-b border-blue-100">
             <button onClick={() => setCurrentMonth(subMonths(currentMonth, 1))} className="p-1.5 hover:bg-blue-100 rounded-lg transition"><ChevronLeft className="w-5 h-5" /></button>
             <span className="font-semibold text-gray-800">{format(currentMonth, 'MMMM yyyy', { locale: sl })}</span>
@@ -181,13 +219,13 @@ export default function CalendarPage() {
               <button onClick={() => setCurrentMonth(addMonths(currentMonth, 1))} className="p-1.5 hover:bg-blue-100 rounded-lg transition"><ChevronRight className="w-5 h-5" /></button>
             </div>
           </div>
-          {/* Day headers */}
+          
           <div className="grid grid-cols-7 border-b border-gray-100">
             {DAYS_SL.map((d, idx) => (
               <div key={d} className={`p-2 text-center text-xs font-semibold ${idx >= 5 ? 'text-red-500' : 'text-gray-500'}`}>{d}</div>
             ))}
           </div>
-          {/* Day cells */}
+
           {loading ? (
             <div className="flex items-center justify-center py-20">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
@@ -242,6 +280,7 @@ export default function CalendarPage() {
             </div>
           )}
         </div>
+
         {/* Selected day detail */}
         <div className="bg-white rounded-xl shadow-sm overflow-hidden">
           <div className="px-4 py-3 bg-gray-50 border-b border-gray-100">
@@ -306,7 +345,7 @@ export default function CalendarPage() {
     </div>
   );
 }
-/* Shared form component */
+
 function EventForm({ form, setForm, saving, onSave, onCancel, compact }: {
   form: FormState;
   setForm: (f: FormState) => void;
@@ -355,7 +394,6 @@ function EventForm({ form, setForm, saving, onSave, onCancel, compact }: {
             <label className="block text-xs text-gray-500 mb-1">Opomba (neobvezno)</label>
             <input value={form.note} onChange={e => setForm({ ...form, note: e.target.value })} placeholder="npr. ordinacija dr. Novak" className="w-full px-3 py-2 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 text-sm" />
           </div>
-          {/* Reminders */}
           <div>
             <div className="flex items-center justify-between mb-2">
               <label className="block text-xs text-gray-500 flex items-center gap-1"><Bell className="w-3 h-3" /> Email opomniki</label>
