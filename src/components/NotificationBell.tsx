@@ -82,9 +82,15 @@ export default function NotificationBell() {
 
   const handleDeleteAll = async () => {
     try {
-      await api.deleteAllNotifications?.();
-    } catch {
-      // Fallback
+      // Poskusimo klicati namensko metodo na API-ju, če obstaja
+      if (api.deleteAllNotifications) {
+        await api.deleteAllNotifications();
+      } else {
+        // Fallback: izbrišemo vsako obvestilo posebej na strežniku, da se trajno počisti
+        await Promise.all(notifications.map(n => api.deleteNotification(n.id)));
+      }
+    } catch (err) {
+      console.error('Napaka pri brisanju vseh obvestil:', err);
     }
     setNotifications([]);
     setUnreadCount(0);
@@ -114,13 +120,8 @@ export default function NotificationBell() {
 
       {open && (
         <>
-          {/* Mobilno ozadje (backdrop) z najvišjim z-indexom */}
           <div className="fixed inset-0 bg-black/25 z-[9999] sm:hidden" onClick={() => setOpen(false)} />
 
-          {/* Mobilni pogled: fixed, lepo raztegnjen čez robove zaslona (in preko sidebara z uporabo negativnih zamikov ali manjšega roba, npr. -left-4 right-4 ali left-1 right-1), 
-            z višino omejeno na ~300px (približno 3-4 obvestila).
-            Namizni pogled (sm:): ohranja pozicioniranje ob zvončku.
-          */}
           <div className="fixed left-2 w-[calc(80vw-24px)] top-14 sm:absolute sm:left-full sm:top-0 sm:inset-x-auto sm:ml-2 sm:w-96 bg-white rounded-2xl sm:rounded-xl shadow-2xl border border-gray-200 z-[10000] overflow-hidden flex flex-col max-h-[450px]"
           >
             {/* Header */}
