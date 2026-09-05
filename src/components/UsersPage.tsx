@@ -81,52 +81,52 @@ export default function UsersPage({ currentUser }: { currentUser: User }) {
   return (
     <div>
       <div className="flex items-center justify-between mb-6 flex-wrap gap-4">
-        <h1 className="text-2xl font-bold text-gray-800">Uporabniki</h1>
+        <h1 className="text-xl sm:text-2xl font-bold text-gray-800">Uporabniki</h1>
         <button
           onClick={() => { setShowForm(!showForm); setEditingId(null); }}
-          className="bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700 transition flex items-center gap-2"
+          className="bg-blue-600 text-white px-3 sm:px-4 py-2 rounded-lg font-medium hover:bg-blue-700 transition flex items-center gap-2 text-sm"
         >
           <Plus className="w-4 h-4" /> Dodaj uporabnika
         </button>
       </div>
 
       {showForm && (
-        <div className="bg-white rounded-xl shadow-sm p-5 mb-4 border-l-4 border-orange-500">
-          <h3 className="font-semibold text-gray-800 mb-3">Nov uporabnik</h3>
+        <div className="bg-white rounded-xl shadow-sm p-4 sm:p-5 mb-4 border-l-4 border-orange-500">
+          <h3 className="font-semibold text-gray-800 mb-3 text-sm sm:text-base">Nov uporabnik</h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <input
               placeholder="Uporabniško ime"
               value={form.username}
               onChange={e => setForm({ ...form, username: e.target.value })}
-              className="px-3 py-2 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500"
+              className="px-3 py-2 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 text-sm"
             />
             <input
               type="password"
               placeholder="Geslo"
               value={form.password}
               onChange={e => setForm({ ...form, password: e.target.value })}
-              className="px-3 py-2 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500"
+              className="px-3 py-2 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 text-sm"
             />
             <input
               placeholder="Polno ime"
               value={form.fullName}
               onChange={e => setForm({ ...form, fullName: e.target.value })}
-              className="px-3 py-2 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500"
+              className="px-3 py-2 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 text-sm"
             />
             <select
               value={form.role}
               onChange={e => setForm({ ...form, role: e.target.value as 'admin' | 'parent' })}
-              className="px-3 py-2 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500"
+              className="px-3 py-2 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 text-sm"
             >
               <option value="parent">Starš</option>
               <option value="admin">Administrator</option>
             </select>
           </div>
           <div className="flex gap-2 mt-3">
-            <button onClick={handleCreate} disabled={saving} className="bg-green-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-green-700 transition flex items-center gap-1 disabled:opacity-50">
+            <button onClick={handleCreate} disabled={saving} className="bg-green-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-green-700 transition flex items-center gap-1 disabled:opacity-50 text-sm">
               <Save className="w-4 h-4" /> Shrani
             </button>
-            <button onClick={() => setShowForm(false)} className="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg font-medium hover:bg-gray-300 transition flex items-center gap-1">
+            <button onClick={() => setShowForm(false)} className="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg font-medium hover:bg-gray-300 transition flex items-center gap-1 text-sm">
               <X className="w-4 h-4" /> Prekliči
             </button>
           </div>
@@ -140,95 +140,97 @@ export default function UsersPage({ currentUser }: { currentUser: User }) {
             <p>Ni uporabnikov.</p>
           </div>
         ) : (
-          <table className="w-full">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-5 py-3 text-left text-sm font-semibold text-gray-600">Uporabnik</th>
-                <th className="px-5 py-3 text-left text-sm font-semibold text-gray-600">Polno ime</th>
-                <th className="px-5 py-3 text-left text-sm font-semibold text-gray-600">Vloga</th>
-                <th className="px-5 py-3 text-left text-sm font-semibold text-gray-600">Otroci</th>
-                <th className="px-5 py-3 text-right text-sm font-semibold text-gray-600">Dejanja</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {users.map((u: User) => {
-                const isEditing = editingId === u.id;
-                return (
-                  <tr key={u.id} className="hover:bg-gray-50">
-                    <td className="px-5 py-3">
-                      {isEditing ? (
-                        <input
-                          value={form.username}
-                          onChange={e => setForm({ ...form, username: e.target.value })}
-                          className="px-2 py-1 border rounded w-32"
-                        />
-                      ) : (
-                        <span className="font-medium text-gray-800">{u.username}</span>
-                      )}
-                    </td>
-                    <td className="px-5 py-3">
-                      {isEditing ? (
-                        <input
-                          value={form.fullName}
-                          onChange={e => setForm({ ...form, fullName: e.target.value })}
-                          className="px-2 py-1 border rounded w-40"
-                        />
-                      ) : (
-                        <span className="text-gray-700">{u.fullName}</span>
-                      )}
-                    </td>
-                    <td className="px-5 py-3">
-                      {isEditing ? (
-                        <select
-                          value={form.role}
-                          onChange={e => setForm({ ...form, role: e.target.value as 'admin' | 'parent' })}
-                          className="px-2 py-1 border rounded"
-                        >
-                          <option value="parent">Starš</option>
-                          <option value="admin">Administrator</option>
-                        </select>
-                      ) : (
-                        <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium ${
-                          u.role === 'admin' ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'
-                        }`}>
-                          {u.role === 'admin' && <Shield className="w-3 h-3" />}
-                          {u.role === 'admin' ? 'Admin' : 'Starš'}
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-5 py-3 text-sm text-gray-500">
-                      {u.childrenIds.length || '—'}
-                    </td>
-                    <td className="px-5 py-3 text-right">
-                      {isEditing ? (
-                        <div className="flex justify-end gap-1">
-                          <button onClick={() => handleUpdate(u.id)} disabled={saving} className="p-1.5 text-green-600 hover:bg-green-50 rounded-lg disabled:opacity-50">
-                            <Save className="w-4 h-4" />
-                          </button>
-                          <button onClick={() => setEditingId(null)} className="p-1.5 text-gray-400 hover:bg-gray-100 rounded-lg">
-                            <X className="w-4 h-4" />
-                          </button>
-                        </div>
-                      ) : (
-                        <div className="flex justify-end gap-1">
-                          <button onClick={() => startEdit(u)} className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg">
-                            <Edit2 className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() => handleDelete(u.id)}
-                            disabled={u.id === currentUser.id}
-                            className={`p-1.5 rounded-lg ${u.id === currentUser.id ? 'text-gray-300 cursor-not-allowed' : 'text-red-600 hover:bg-red-50'}`}
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[500px]">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-4 sm:px-5 py-3 text-left text-xs sm:text-sm font-semibold text-gray-600">Uporabnik</th>
+                  <th className="px-4 sm:px-5 py-3 text-left text-xs sm:text-sm font-semibold text-gray-600">Polno ime</th>
+                  <th className="px-4 sm:px-5 py-3 text-left text-xs sm:text-sm font-semibold text-gray-600">Vloga</th>
+                  <th className="px-4 sm:px-5 py-3 text-left text-xs sm:text-sm font-semibold text-gray-600">Otroci</th>
+                  <th className="px-4 sm:px-5 py-3 text-right text-xs sm:text-sm font-semibold text-gray-600">Dejanja</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {users.map((u: User) => {
+                  const isEditing = editingId === u.id;
+                  return (
+                    <tr key={u.id} className="hover:bg-gray-50">
+                      <td className="px-4 sm:px-5 py-3">
+                        {isEditing ? (
+                          <input
+                            value={form.username}
+                            onChange={e => setForm({ ...form, username: e.target.value })}
+                            className="px-2 py-1 border rounded w-28 sm:w-32 text-xs sm:text-sm"
+                          />
+                        ) : (
+                          <span className="font-medium text-gray-800 text-xs sm:text-sm">{u.username}</span>
+                        )}
+                      </td>
+                      <td className="px-4 sm:px-5 py-3">
+                        {isEditing ? (
+                          <input
+                            value={form.fullName}
+                            onChange={e => setForm({ ...form, fullName: e.target.value })}
+                            className="px-2 py-1 border rounded w-36 sm:w-40 text-xs sm:text-sm"
+                          />
+                        ) : (
+                          <span className="text-gray-700 text-xs sm:text-sm">{u.fullName}</span>
+                        )}
+                      </td>
+                      <td className="px-4 sm:px-5 py-3">
+                        {isEditing ? (
+                          <select
+                            value={form.role}
+                            onChange={e => setForm({ ...form, role: e.target.value as 'admin' | 'parent' })}
+                            className="px-2 py-1 border rounded text-xs sm:text-sm"
                           >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </div>
-                      )}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+                            <option value="parent">Starš</option>
+                            <option value="admin">Administrator</option>
+                          </select>
+                        ) : (
+                          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium ${
+                            u.role === 'admin' ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'
+                          }`}>
+                            {u.role === 'admin' && <Shield className="w-3 h-3" />}
+                            {u.role === 'admin' ? 'Admin' : 'Starš'}
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-4 sm:px-5 py-3 text-xs sm:text-sm text-gray-500">
+                        {u.childrenIds.length || '—'}
+                      </td>
+                      <td className="px-4 sm:px-5 py-3 text-right">
+                        {isEditing ? (
+                          <div className="flex justify-end gap-1">
+                            <button onClick={() => handleUpdate(u.id)} disabled={saving} className="p-1.5 text-green-600 hover:bg-green-50 rounded-lg disabled:opacity-50">
+                              <Save className="w-4 h-4" />
+                            </button>
+                            <button onClick={() => setEditingId(null)} className="p-1.5 text-gray-400 hover:bg-gray-100 rounded-lg">
+                              <X className="w-4 h-4" />
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="flex justify-end gap-1">
+                            <button onClick={() => startEdit(u)} className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg">
+                              <Edit2 className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => handleDelete(u.id)}
+                              disabled={u.id === currentUser.id}
+                              className={`p-1.5 rounded-lg ${u.id === currentUser.id ? 'text-gray-300 cursor-not-allowed' : 'text-red-600 hover:bg-red-50'}`}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         )}
       </div>
     </div>
