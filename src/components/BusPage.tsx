@@ -1,8 +1,10 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import * as api from '../api';
 import { useAsync } from '../hooks/useAsync';
 import { BusRide } from '../types';
-import { Plus, Trash2, Edit2, Save, X, ArrowRight } from 'lucide-react';
+import { Plus, Trash2, Edit2, Save, X, ArrowRight, FileText } from 'lucide-react';
+import { jsPDF } from 'jspdf';
+import { toPng } from 'html-to-image';
 
 export default function BusPage() {
   const { data: rides, loading, error, refresh } = useAsync(api.getBusRides);
@@ -15,6 +17,8 @@ export default function BusPage() {
     label: '',
   });
   const [saving, setSaving] = useState(false);
+
+  const printRef = useRef<HTMLDivElement>(null);
 
   if (loading) {
     return (
@@ -82,8 +86,46 @@ export default function BusPage() {
     });
   };
 
+  const handleExportPDF = async () => {
+    const element = printRef.current;
+    if (!element) return;
+
+    try {
+      // Zajemi sliko z ignoriranjem gumbov za urejanje/brisanje
+      const dataUrl = await toPng(element, { 
+        quality: 0.95, 
+        pixelRatio: 2,
+        filter: (node) => {
+          if (node.classList && node.classList.contains('no-pdf')) {
+            return false;
+          }
+          return true;
+        }
+      });
+
+      const pdf = new jsPDF('portrait', 'mm', 'a4');
+      const pdfPageWidth = pdf.internal.pageSize.getWidth(); // 210mm za A4
+      
+      // Izračun 90% širine A4 formata in ustreznega odmika (center)
+      const targetWidth = pdfPageWidth * 0.9; // 189mm
+      const marginX = (pdfPageWidth - targetWidth) / 2; // 10.5mm od roba
+      const marginY = 15; // 15mm od vrha
+
+      const img = new Image();
+      img.src = dataUrl;
+      
+      img.onload = () => {
+        const imgHeight = (img.height * targetWidth) / img.width;
+        pdf.addImage(dataUrl, 'PNG', marginX, marginY, targetWidth, imgHeight);
+        pdf.save('vozni-red-avtobus.pdf');
+      };
+    } catch (error) {
+      console.error('Napaka pri generiranju PDF-ja:', error);
+    }
+  };
+
   const renderRideTable = (rideList: BusRide[], title: string, icon: string, bgColor: string, textColor: string) => (
-    <div className="bg-white rounded-xl shadow-sm overflow-hidden">
+    <div className="bg-white rounded-xl shadow-sm overflow-hidden border border-gray-100">
       <div className={`px-4 py-3 ${bgColor} border-b flex items-center gap-2`}>
         <span className="text-lg">{icon}</span>
         <h3 className={`text-sm font-semibold ${textColor}`}>{title}</h3>
@@ -101,7 +143,7 @@ export default function BusPage() {
                 <th className="px-2 py-2 text-center text-xs sm:text-sm font-semibold text-gray-400"></th>
                 <th className="px-3 py-2 text-left text-xs sm:text-sm font-semibold text-gray-600">Prihod</th>
                 <th className="px-3 py-2 text-left text-xs sm:text-sm font-semibold text-gray-600">Trajanje</th>
-                <th className="px-3 py-2 text-right text-xs sm:text-sm font-semibold text-gray-600 w-16"></th>
+                <th className="px-3 py-2 text-right text-xs sm:text-sm font-semibold text-gray-600 w-16 no-pdf"></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
@@ -142,7 +184,7 @@ export default function BusPage() {
                           />
                         </td>
                         <td className="px-3 py-2"></td>
-                        <td className="px-3 py-2 text-right">
+                        <td className="px-3 py-2 text-right no-pdf">
                           <div className="flex justify-end gap-1">
                             <button onClick={() => handleUpdate(ride.id)} disabled={saving} className="p-1 text-green-600 hover:bg-green-50 rounded disabled:opacity-50">
                               <Save className="w-4 h-4" />
@@ -164,12 +206,12 @@ export default function BusPage() {
                         </td>
                         <td className="px-3 py-2 text-xs sm:text-sm font-mono text-gray-700">{ride.arrivalTime}</td>
                         <td className="px-3 py-2 text-xs sm:text-sm text-gray-400">{duration > 0 ? `${duration} min` : ''}</td>
-                        <td className="px-3 py-2 text-right">
+                        <td className="px-3 py-2 text-right no-pdf">
                           <div className="flex justify-end gap-1">
                             <button onClick={() => startEdit(ride)} className="p-1.5 text-blue-600 hover:bg-blue-50 rounded">
                               <Edit2 className="w-4 h-4" />
                             </button>
-                            <button onClick={() => handleDelete(ride.id)} className="p-1.5 text-red-600 hover:bg-red-50 rounded">
+                            <button onClick={() => handleDelete(ride.id)} className="p-1.5 text-red-500 hover:bg-red-50 rounded">
                               <Trash2 className="w-4 h-4" />
                             </button>
                           </div>
@@ -193,12 +235,22 @@ export default function BusPage() {
           <h1 className="text-xl sm:text-2xl font-bold text-gray-800">Vozni red šolskega avtobusa</h1>
           <p className="text-gray-500 text-xs sm:text-sm mt-1">Enak vsak šolski dan</p>
         </div>
-        <button
-          onClick={() => { setShowForm(!showForm); setEditingId(null); }}
-          className="bg-blue-600 text-white px-3 sm:px-4 py-2 rounded-lg font-medium hover:bg-blue-700 transition flex items-center gap-2 text-sm"
-        >
-          <Plus className="w-4 h-4" /> Dodaj vožnjo
-        </button>
+        <div className="flex items-center gap-2">
+          {/* Bel gumb z rdečo ikono za PDF */}
+          <button
+            onClick={handleExportPDF}
+            className="bg-white hover:bg-gray-50 text-gray-700 border border-gray-200 px-3.5 py-2 rounded-lg text-sm font-medium transition flex items-center gap-2 shadow-sm"
+          >
+            <FileText className="w-4 h-4 text-red-600" />
+            <span>Izvozi v PDF</span>
+          </button>
+          <button
+            onClick={() => { setShowForm(!showForm); setEditingId(null); }}
+            className="bg-blue-600 text-white px-3 sm:px-4 py-2 rounded-lg font-medium hover:bg-blue-700 transition flex items-center gap-2 text-sm"
+          >
+            <Plus className="w-4 h-4" /> Dodaj vožnjo
+          </button>
+        </div>
       </div>
 
       {showForm && (
@@ -255,9 +307,22 @@ export default function BusPage() {
         </div>
       )}
 
+      {/* Prikaz dveh stolpcev na zaslonu */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {renderRideTable(toSchool, 'V šolo', '🏫', 'bg-blue-50', 'text-blue-800')}
         {renderRideTable(fromSchool, 'Iz šole', '🏠', 'bg-green-50', 'text-green-800')}
+      </div>
+
+      {/* Skriti vertikalni element (1 stolpec), ki se zajame za PDF v pokončnem položaju */}
+      <div className="overflow-hidden h-0 w-0 pointer-events-none">
+        <div ref={printRef} className="flex flex-col gap-6 bg-white p-6 w-[700px]">
+          <div className="mb-2 border-b border-gray-200 pb-3">
+            <h2 className="text-xl font-bold text-gray-800">Vozni red šolskega avtobusa</h2>
+            <p className="text-gray-500 text-xs mt-1">Enak vsak šolski dan</p>
+          </div>
+          {renderRideTable(toSchool, 'V šolo', '🏫', 'bg-blue-50', 'text-blue-800')}
+          {renderRideTable(fromSchool, 'Iz šole', '🏠', 'bg-green-50', 'text-green-800')}
+        </div>
       </div>
     </div>
   );
