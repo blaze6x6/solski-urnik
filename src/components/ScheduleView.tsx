@@ -1,7 +1,7 @@
 import { useMemo, useState, useEffect, useRef, useCallback } from 'react';
 import * as api from '../api';
 import { ScheduleEntry, Period, Subject, DayEvent, AfternoonEntry, SchoolBreak } from '../types';
-import { format, startOfWeek, addDays, isWithinInterval, parseISO, addWeeks, subWeeks } from 'date-fns';
+import { format, startOfWeek, addDays, isWithinInterval, parseISO, addWeeks, subWeeks, isWeekend } from 'date-fns';
 import { sl } from 'date-fns/locale';
 import { ChevronLeft, ChevronRight, Calendar, Star, Coffee, Umbrella, Type, FileDown, X, Clock, MapPin } from 'lucide-react';
 import { toPng } from 'html-to-image';
@@ -37,7 +37,7 @@ export default function ScheduleView({ classId, className, title }: Props) {
   const [loading, setLoading] = useState(true);
   const [now, setNow] = useState(new Date());
   const [exporting, setExporting] = useState(false);
-  
+
   const [showFullName, setShowFullName] = useState(true);
   const [selectedItem, setSelectedItem] = useState<SelectedItemInfo | null>(null);
 
@@ -79,7 +79,7 @@ export default function ScheduleView({ classId, className, title }: Props) {
 
   const weekStart = startOfWeek(getAdjustedDate(currentDate), { weekStartsOn: 1 });
   const weekDates = Array.from({ length: 5 }, (_, i) => addDays(weekStart, i));
-  
+
   const holidays = useMemo(() => {
     const years = new Set(weekDates.map(d => d.getFullYear()));
     const map = new Map<string, string>();
@@ -220,8 +220,10 @@ export default function ScheduleView({ classId, className, title }: Props) {
   };
 
   const todayStr = format(now, 'yyyy-MM-dd');
-  
+  const todayIsWeekend = isWeekend(now);
+
   const isActivePeriod = (day: number, period: Period): boolean => {
+    if (todayIsWeekend) return false; // Izven tedna / ob vikendih ni aktivnih ur
     if (period.isBreak) return false;
     const cellDate = weekDates[day];
     if (!cellDate) return false;
@@ -233,6 +235,7 @@ export default function ScheduleView({ classId, className, title }: Props) {
   };
 
   const isPeriodActiveNow = (period: Period): boolean => {
+    if (todayIsWeekend) return false; // Ob vikendih ni aktivne ure v levem stolpcu
     if (period.isBreak) return false;
     const nowMins = now.getHours() * 60 + now.getMinutes();
     return nowMins >= toMinutes(period.startTime) && nowMins < toMinutes(period.endTime);
@@ -420,7 +423,7 @@ export default function ScheduleView({ classId, className, title }: Props) {
                               key={day} 
                               className="p-0.5 border-b border-r border-gray-100 relative"
                             >
-                              {/* Lebdeča osvetlitev ozadja celice in pulzirajoča točka */}
+                              {/* Lebdeča osvetlitev ozadja celice in pulzirajoča točka (samo med delavniki) */}
                               {active && (
                                 <>
                                   <div className="absolute inset-0 bg-blue-100/60 pointer-events-none z-10" />
