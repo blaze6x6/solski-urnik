@@ -161,7 +161,7 @@ function ChildrenSchedules({ user }: { user: User }) {
             activeFilter === 'all' ? 'bg-blue-600 text-white shadow-xs' : 'text-gray-600 hover:bg-gray-100'
           }`}
         >
-          <Users className="w-4 h-4" /> Vsi otroci hkrati
+          <Users className="w-4 h-4" /> Vsi
         </button>
         {children.map(child => (
           <button
