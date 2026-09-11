@@ -77,6 +77,7 @@ CREATE TABLE IF NOT EXISTS schedule_entries (
 CREATE TABLE IF NOT EXISTS day_events (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     event_date DATE NOT NULL,
+    end_date DATE,
     title VARCHAR(200) NOT NULL,
     color VARCHAR(20) NOT NULL DEFAULT '#3B82F6',
     class_ids UUID[] DEFAULT '{}',
