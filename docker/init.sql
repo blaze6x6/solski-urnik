@@ -84,6 +84,7 @@ CREATE TABLE IF NOT EXISTS day_events (
     start_time TIME NOT NULL,
     end_time TIME NOT NULL,
     recurrence VARCHAR(20) NOT NULL DEFAULT 'none',
+    exceptions DATE[] DEFAULT '{}',
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
@@ -141,8 +142,10 @@ CREATE TABLE IF NOT EXISTS smtp_settings (
 );
 INSERT INTO smtp_settings (id, host) VALUES (1, '') ON CONFLICT (id) DO NOTHING;
 
--- Add end_date and range support to day_events
+-- Add end_date and exceptions support to day_events if table already existed
 ALTER TABLE day_events ADD COLUMN IF NOT EXISTS end_date DATE;
+ALTER TABLE day_events ADD COLUMN IF NOT EXISTS exceptions DATE[] DEFAULT '{}';
+
 -- Calendar events (personal/family calendar, all days of week, full year)
 CREATE TABLE IF NOT EXISTS calendar_events (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
