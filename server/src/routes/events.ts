@@ -118,8 +118,8 @@ router.post('/:id/exception', adminMiddleware, async (req, res) => {
     }
     await execute(
       `UPDATE day_events 
-       SET exceptions = array_append(exceptions, $1::date) 
-       WHERE id = $2 AND NOT ($1::date = ANY(exceptions))`,
+       SET exceptions = array_append(COALESCE(exceptions, '{}'), $1::date) 
+       WHERE id = $2 AND NOT ($1::date = ANY(COALESCE(exceptions, '{}')))`,
       [date, id]
     );
     res.json({ success: true });
