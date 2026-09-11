@@ -3,7 +3,7 @@ import * as api from '../api';
 import { ScheduleEntry, Period, Subject, DayEvent, AfternoonEntry, SchoolBreak } from '../types';
 import { format, startOfWeek, addDays, isWithinInterval, parseISO, addWeeks, subWeeks, isWeekend } from 'date-fns';
 import { sl } from 'date-fns/locale';
-import { ChevronLeft, ChevronRight, Calendar, Star, Coffee, Umbrella, Type, FileDown, X, Clock, MapPin } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Calendar, Star, Coffee, Umbrella, Type, FileDown, X, Clock, MapPin, Trash2 } from 'lucide-react';
 import { toPng } from 'html-to-image';
 import { jsPDF } from 'jspdf';
 import { getSlovenianHolidays } from '../holidays';
@@ -17,12 +17,15 @@ interface Props {
 }
 
 interface SelectedItemInfo {
+  id: string;
   title: string;
   subtitle?: string;
   startTime: string;
   endTime: string;
   room?: string;
   color?: string;
+  recurrence?: string;
+  dateStr?: string;
 }
 
 export default function ScheduleView({ classId, className, title }: Props) {
@@ -41,7 +44,6 @@ export default function ScheduleView({ classId, className, title }: Props) {
   const [showFullName, setShowFullName] = useState(true);
   const [selectedItem, setSelectedItem] = useState<SelectedItemInfo | null>(null);
 
-  // Stanja za upravljanje potega prsta (Swipe)
   const [touchStart, setTouchStart] = useState<number | null>(null);
   const [touchEnd, setTouchEnd] = useState<number | null>(null);
   const minSwipeDistance = 50;
@@ -60,12 +62,9 @@ export default function ScheduleView({ classId, className, title }: Props) {
   const onTouchEnd = () => {
     if (!touchStart || !touchEnd) return;
     const distance = touchStart - touchEnd;
-    const isLeftSwipe = distance > minSwipeDistance;
-    const isRightSwipe = distance < -minSwipeDistance;
-
-    if (isLeftSwipe) {
+    if (distance > minSwipeDistance) {
       setCurrentDate(addWeeks(currentDate, 1));
-    } else if (isRightSwipe) {
+    } else if (distance < -minSwipeDistance) {
       setCurrentDate(subWeeks(currentDate, 1));
     }
   };
@@ -77,15 +76,21 @@ export default function ScheduleView({ classId, className, title }: Props) {
     return date;
   };
 
-  const weekStart = startOfWeek(getAdjustedDate(currentDate), { weekStartsOn: 1 });
-  const weekDates = Array.from({ length: 5 }, (_, i) => addDays(weekStart, i));
+  const weekDates = useMemo(() => {
+    const adjusted = getAdjustedDate(currentDate);
+    const start = startOfWeek(adjusted, { weekStartsOn: 1 });
+    return Array.from({ length: 5 }, (_, i) => addDays(start, i));
+  }, [currentDate]);
+
+  const weekStart = weekDates[0];
+  const weekKey = format(weekStart, 'yyyy-MM-dd');
 
   const holidays = useMemo(() => {
     const years = new Set(weekDates.map(d => d.getFullYear()));
     const map = new Map<string, string>();
     years.forEach(y => getSlovenianHolidays(y).forEach((v, k) => map.set(k, v)));
     return map;
-  }, [weekStart.toISOString()]);
+  }, [weekDates]);
 
   const exportPdf = useCallback(async () => {
     const el = scheduleRef.current;
@@ -132,42 +137,64 @@ export default function ScheduleView({ classId, className, title }: Props) {
   };
 
   useEffect(() => {
+    if (!classId) return;
     Promise.all([
       api.getPeriods(),
       api.getSubjects(),
       api.getSchoolYear(),
-    ]).then(([p, s, y]) => {
+      api.getScheduleForClass(classId),
+      api.getAfternoonForClass(classId),
+    ]).then(([p, s, y, sched, aft]) => {
       setPeriods(p);
       setSubjects(s);
       setSchoolYear(y);
       setSchoolBreaks(y.breaks || []);
+      setEntries(sched);
+      setAfternoonEntries(aft);
     });
-  }, []);
-
-  useEffect(() => {
-    if (classId) {
-      api.getScheduleForClass(classId).then(setEntries);
-      api.getAfternoonForClass(classId).then(setAfternoonEntries);
-    }
   }, [classId]);
 
-  const weekKey = format(weekStart, 'yyyy-MM-dd');
   useEffect(() => {
     if (!classId) return;
-    setLoading(true);
+    let isMounted = true;
+    
     Promise.all(
       weekDates.map(date =>
         api.getTimeEventsForClassAndDate(classId, format(date, 'yyyy-MM-dd'))
           .catch(() => [] as DayEvent[])
       )
     ).then(events => {
-      setTimeEvents(events);
-      setLoading(false);
+      if (isMounted) {
+        setTimeEvents(events);
+        setLoading(false);
+      }
     }).catch(() => {
-      setTimeEvents([[], [], [], [], []]);
-      setLoading(false);
+      if (isMounted) {
+        setTimeEvents([[], [], [], [], []]);
+        setLoading(false);
+      }
     });
+
+    return () => {
+      isMounted = false;
+    };
   }, [classId, weekKey]);
+
+  const handleCancelForDay = async (eventId: string, dateStr: string) => {
+    try {
+      await api.cancelEventForDate(eventId, dateStr);
+      setSelectedItem(null);
+      const events = await Promise.all(
+        weekDates.map(date =>
+          api.getTimeEventsForClassAndDate(classId, format(date, 'yyyy-MM-dd'))
+            .catch(() => [] as DayEvent[])
+        )
+      );
+      setTimeEvents(events);
+    } catch (err) {
+      console.error('Napaka pri odpovedi dogodka:', err);
+    }
+  };
 
   const isWeekInSchoolYear = useMemo(() => {
     if (!schoolYear.startDate || !schoolYear.endDate) return true;
@@ -206,12 +233,15 @@ export default function ScheduleView({ classId, className, title }: Props) {
     return hours * 60 + minutes;
   };
 
-  const getEventsForPeriod = (day: number, period: Period) => {
+  const getEventsForPeriod = (day: number, period: Period, dateStr: string) => {
     if (!period.startTime || !period.endTime) return [];
     const periodStart = toMinutes(period.startTime);
     const periodEnd = toMinutes(period.endTime);
 
     return (timeEvents[day] || []).filter(event => {
+      if (event.exceptions && event.exceptions.includes(dateStr)) {
+        return false;
+      }
       if (!event.startTime || !event.endTime) return false;
       const eventStart = toMinutes(event.startTime);
       const eventEnd = toMinutes(event.endTime);
@@ -223,7 +253,7 @@ export default function ScheduleView({ classId, className, title }: Props) {
   const todayIsWeekend = isWeekend(now);
 
   const isActivePeriod = (day: number, period: Period): boolean => {
-    if (todayIsWeekend) return false; // Izven tedna / ob vikendih ni aktivnih ur
+    if (todayIsWeekend) return false;
     if (period.isBreak) return false;
     const cellDate = weekDates[day];
     if (!cellDate) return false;
@@ -235,7 +265,7 @@ export default function ScheduleView({ classId, className, title }: Props) {
   };
 
   const isPeriodActiveNow = (period: Period): boolean => {
-    if (todayIsWeekend) return false; // Ob vikendih ni aktivne ure v levem stolpcu
+    if (todayIsWeekend) return false;
     if (period.isBreak) return false;
     const nowMins = now.getHours() * 60 + now.getMinutes();
     return nowMins >= toMinutes(period.startTime) && nowMins < toMinutes(period.endTime);
@@ -247,7 +277,6 @@ export default function ScheduleView({ classId, className, title }: Props) {
         <h2 className="text-xl font-bold text-gray-800 mb-4">{title}</h2>
       )}
 
-      {/* Navigacija tedna */}
       <div className="flex flex-col sm:flex-row items-center justify-between mb-4 bg-white rounded-xl p-4 shadow-sm gap-3">
         <button
           onClick={() => setCurrentDate(subWeeks(currentDate, 1))}
@@ -274,7 +303,6 @@ export default function ScheduleView({ classId, className, title }: Props) {
             className={`hidden sm:flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg transition font-medium ${
               showFullName ? 'bg-blue-100 text-blue-700 hover:bg-blue-200' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
             }`}
-            title="Preklopi med polnimi imeni in kraticami"
           >
             <Type className="w-4 h-4" />
             {showFullName ? 'Polna imena' : 'Kratice'}
@@ -284,7 +312,6 @@ export default function ScheduleView({ classId, className, title }: Props) {
             onClick={exportPdf}
             disabled={exporting}
             className="px-3 py-1.5 text-sm bg-green-100 text-green-700 rounded-lg hover:bg-green-200 transition font-medium flex items-center gap-1.5 disabled:opacity-50"
-            title="Izvozi v PDF"
           >
             {exporting ? (
               <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-green-700"></div>
@@ -308,7 +335,6 @@ export default function ScheduleView({ classId, className, title }: Props) {
         </div>
       </div>
 
-      {/* Urnik z dodanimi dogodki za zaznavanje potega prsta (Swipe) */}
       <div 
         ref={scheduleRef}
         onTouchStart={onTouchStart}
@@ -332,7 +358,7 @@ export default function ScheduleView({ classId, className, title }: Props) {
                       const dateStr = format(date, 'yyyy-MM-dd');
                       const isToday = dateStr === todayStr;
                       const inSchoolYear = isDayInSchoolYear[i];
-                      const events = timeEvents[i] || [];
+                      const events = (timeEvents[i] || []).filter(e => !(e.exceptions && e.exceptions.includes(dateStr)));
                       const holiday = holidays.get(dateStr);
                       return (
                         <th
@@ -384,7 +410,7 @@ export default function ScheduleView({ classId, className, title }: Props) {
                           const dateStr = format(weekDates[day], 'yyyy-MM-dd');
                           const activeBreak = getBreakForDate(dateStr);
                           const inSchoolYear = isDayInSchoolYear[day];
-                          const eventsForCell = getEventsForPeriod(day, period);
+                          const eventsForCell = getEventsForPeriod(day, period, dateStr);
                           const active = isActivePeriod(day, period);
 
                           if (activeBreak) {
@@ -419,11 +445,7 @@ export default function ScheduleView({ classId, className, title }: Props) {
                           const subject = entry ? getSubject(entry.subjectId) : null;
 
                           return (
-                            <td 
-                              key={day} 
-                              className="p-0.5 border-b border-r border-gray-100 relative"
-                            >
-                              {/* Lebdeča osvetlitev ozadja celice in pulzirajoča točka (samo med delavniki) */}
+                            <td key={day} className="p-0.5 border-b border-r border-gray-100 relative">
                               {active && (
                                 <>
                                   <div className="absolute inset-0 bg-blue-100/60 pointer-events-none z-10" />
@@ -438,12 +460,14 @@ export default function ScheduleView({ classId, className, title }: Props) {
                                 {eventsForCell.map(event => (
                                   <div
                                     key={event.id}
-                                    title={`${event.title} (${event.startTime} - ${event.endTime})`}
                                     onClick={() => setSelectedItem({
+                                      id: event.id,
                                       title: event.title,
                                       startTime: event.startTime,
                                       endTime: event.endTime,
-                                      color: event.color
+                                      color: event.color,
+                                      recurrence: event.recurrence,
+                                      dateStr: dateStr
                                     })}
                                     className="w-full rounded-md p-1 text-center flex flex-col justify-center leading-tight cursor-pointer hover:opacity-80 transition overflow-hidden"
                                     style={{ backgroundColor: event.color + '15', borderLeft: `3px solid ${event.color}` }}
@@ -457,8 +481,8 @@ export default function ScheduleView({ classId, className, title }: Props) {
                                 ))}
                                 {eventsForCell.length === 0 && subject ? (
                                   <div
-                                    title={`${subject.name} (${period.startTime} - ${period.endTime})${entry?.room ? ` | Učilnica: ${entry.room}` : ''}`}
                                     onClick={() => setSelectedItem({
+                                      id: subject.id,
                                       title: subject.name,
                                       subtitle: `Kratica: ${subject.shortName}`,
                                       startTime: period.startTime,
@@ -472,10 +496,7 @@ export default function ScheduleView({ classId, className, title }: Props) {
                                       borderLeft: `3px solid ${subject.color}`,
                                     }}
                                   >
-                                    <span
-                                      className="w-full font-bold text-[10px] sm:text-xs leading-tight truncate px-0.5"
-                                      style={{ color: subject.color }}
-                                    >
+                                    <span className="w-full font-bold text-[10px] sm:text-xs leading-tight truncate px-0.5" style={{ color: subject.color }}>
                                       <span className="sm:hidden">{subject.shortName}</span>
                                       <span className="hidden sm:inline">
                                         {showFullName ? subject.name : subject.shortName}
@@ -502,7 +523,6 @@ export default function ScheduleView({ classId, className, title }: Props) {
         </div>
       </div>
 
-      {/* Modalno okno (Popup) ob kliku na predmet */}
       {selectedItem && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50 animate-fade-in">
           <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6 relative space-y-4 border border-gray-100">
@@ -514,10 +534,7 @@ export default function ScheduleView({ classId, className, title }: Props) {
             </button>
 
             <div className="flex items-center gap-3">
-              <div 
-                className="w-4 h-10 rounded-full shrink-0" 
-                style={{ backgroundColor: selectedItem.color || '#3B82F6' }} 
-              />
+              <div className="w-4 h-10 rounded-full shrink-0" style={{ backgroundColor: selectedItem.color || '#3B82F6' }} />
               <div>
                 <h3 className="text-xl font-bold text-gray-800 leading-snug">
                   {selectedItem.title}
@@ -545,6 +562,15 @@ export default function ScheduleView({ classId, className, title }: Props) {
                 </div>
               )}
             </div>
+
+            {selectedItem.recurrence && selectedItem.recurrence !== 'none' && selectedItem.dateStr && (
+              <button
+                onClick={() => handleCancelForDay(selectedItem.id, selectedItem.dateStr!)}
+                className="w-full bg-red-50 text-red-600 border border-red-200 py-2.5 rounded-xl font-medium hover:bg-red-100 transition flex items-center justify-center gap-2 text-sm"
+              >
+                <Trash2 className="w-4 h-4" /> Odpovej dogodek samo za ta dan ({selectedItem.dateStr})
+              </button>
+            )}
 
             <button
               onClick={() => setSelectedItem(null)}
