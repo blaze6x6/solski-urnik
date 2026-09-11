@@ -239,7 +239,7 @@ export default function ScheduleView({ classId, className, title }: Props) {
     const periodEnd = toMinutes(period.endTime);
 
     return (timeEvents[day] || []).filter(event => {
-      if (event.exceptions && event.exceptions.includes(dateStr)) {
+      if (event.exceptions && event.exceptions.some(ex => ex.substring(0, 10) === dateStr)) {
         return false;
       }
       if (!event.startTime || !event.endTime) return false;
@@ -358,7 +358,7 @@ export default function ScheduleView({ classId, className, title }: Props) {
                       const dateStr = format(date, 'yyyy-MM-dd');
                       const isToday = dateStr === todayStr;
                       const inSchoolYear = isDayInSchoolYear[i];
-                      const events = (timeEvents[i] || []).filter(e => !(e.exceptions && e.exceptions.includes(dateStr)));
+                      const events = (timeEvents[i] || []).filter(e => !(e.exceptions && e.exceptions.some(ex => ex.substring(0, 10) === dateStr)));
                       const holiday = holidays.get(dateStr);
                       return (
                         <th
