@@ -3,8 +3,10 @@ import { query, queryOne, execute } from '../db.js';
 import { authMiddleware, adminMiddleware } from '../auth.js';
 import { notifyAllWithCalendar } from '../mailer.js';
 import { notifyAllInApp } from '../notify.js';
+
 const router = Router();
 router.use(authMiddleware);
+
 // ----- helpers -----
 interface EventRow {
   id: string;
@@ -16,7 +18,9 @@ interface EventRow {
   start_time: string | null;
   end_time: string | null;
   recurrence: string;
+  exceptions: string[];
 }
+
 function mapEvent(e: EventRow) {
   return {
     id: e.id,
@@ -28,8 +32,10 @@ function mapEvent(e: EventRow) {
     startTime: e.start_time?.substring(0, 5) || '00:00',
     endTime: e.end_time?.substring(0, 5) || '23:59',
     recurrence: e.recurrence || 'none',
+    exceptions: e.exceptions || [],
   };
 }
+
 function recurrenceWhere(dateParam: string): string {
   const d = `${dateParam}::date`;
   return `(
@@ -54,13 +60,17 @@ function recurrenceWhere(dateParam: string): string {
                               AND EXTRACT(DAY FROM event_date) = EXTRACT(DAY FROM ${d}))
   )`;
 }
-const RETURNING = `RETURNING id, event_date, end_date, title, color, class_ids, start_time::text, end_time::text, recurrence`;
+
+const RETURNING = `RETURNING id, event_date, end_date, title, color, class_ids, start_time::text, end_time::text, recurrence, exceptions`;
+
 // ----- routes -----
-// Get all events (admin list)
+
+// Get all events (admin list) - avtomatsko počisti pretekle enkratne dogodke
 router.get('/', async (_req, res) => {
   try {
+    await execute(`DELETE FROM day_events WHERE (recurrence IS NULL OR recurrence = 'none' OR recurrence = '') AND event_date < CURRENT_DATE`);
     const events = await query<EventRow>(
-      `SELECT id, event_date, end_date, title, color, class_ids, start_time::text, end_time::text, recurrence
+      `SELECT id, event_date, end_date, title, color, class_ids, start_time::text, end_time::text, recurrence, exceptions
        FROM day_events
        ORDER BY event_date, start_time`
     );
@@ -70,6 +80,7 @@ router.get('/', async (_req, res) => {
     res.status(500).json({ error: 'Napaka pri pridobivanju dogodkov' });
   }
 });
+
 // Get events for a class on a specific date (recurrence-aware)
 router.get('/time-events', async (req, res) => {
   try {
@@ -77,8 +88,11 @@ router.get('/time-events', async (req, res) => {
     if (!classId || !date) {
       return res.status(400).json({ error: 'Razred in datum sta obvezna' });
     }
+    // Počisti pretekle enkratne dogodke
+    await execute(`DELETE FROM day_events WHERE (recurrence IS NULL OR recurrence = 'none' OR recurrence = '') AND event_date < CURRENT_DATE`);
+
     const timeEventsSql = `
-      SELECT id, event_date, end_date, title, color, class_ids, start_time::text, end_time::text, recurrence
+      SELECT id, event_date, end_date, title, color, class_ids, start_time::text, end_time::text, recurrence, exceptions
       FROM day_events
       WHERE start_time IS NOT NULL
         AND end_time IS NOT NULL
@@ -87,13 +101,34 @@ router.get('/time-events', async (req, res) => {
       ORDER BY start_time
     `;
     const events = await query<EventRow>(timeEventsSql, [date, classId]);
-    console.log(`📅 time-events: date=${date}, classId=${classId}, found=${events.length}`);
     res.json(events.map(mapEvent));
   } catch (error) {
     console.error('Get time events error:', error);
     res.status(500).json({ error: 'Napaka pri pridobivanju dogodkov' });
   }
 });
+
+// Dodaj izjemo (odpoved ponavljajočega dogodka za določen dan)
+router.post('/:id/exception', adminMiddleware, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { date } = req.body; // format 'YYYY-MM-DD'
+    if (!date) {
+      return res.status(400).json({ error: 'Datum izjeme je obvezen' });
+    }
+    await execute(
+      `UPDATE day_events 
+       SET exceptions = array_append(exceptions, $1::date) 
+       WHERE id = $2 AND NOT ($1::date = ANY(exceptions))`,
+      [date, id]
+    );
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Add event exception error:', error);
+    res.status(500).json({ error: 'Napaka pri odpovedi dogodka za izbrani dan' });
+  }
+});
+
 // Create event
 router.post('/', adminMiddleware, async (req, res) => {
   try {
@@ -108,8 +143,8 @@ router.post('/', adminMiddleware, async (req, res) => {
       return res.status(400).json({ error: 'Ura začetka mora biti pred uro konca' });
     }
     const event = await queryOne<EventRow>(
-      `INSERT INTO day_events (event_date, end_date, title, color, class_ids, is_all_day, start_time, end_time, recurrence)
-       VALUES ($1, $2, $3, $4, $5, false, $6, $7, $8)
+      `INSERT INTO day_events (event_date, end_date, title, color, class_ids, is_all_day, start_time, end_time, recurrence, exceptions)
+       VALUES ($1, $2, $3, $4, $5, false, $6, $7, $8, '{}')
        ${RETURNING}`,
       [date, endDate || null, title, color, classIds || [], startTime, endTime, recurrence || 'none']
     );
@@ -121,8 +156,7 @@ router.post('/', adminMiddleware, async (req, res) => {
     notifyAllWithCalendar(
       'Nov dogodek: ' + title,
       `<p>Dodan je bil nov dogodek: <strong>${title}</strong></p>
-       <p>Datum: ${date}, ${startTime} – ${endTime}${recLabels[recurrence || 'none'] || ''}</p>
-       <p><small>Odprite priloženo .ics datoteko za dodajanje v Google Koledar ali drug koledar.</small></p>`,
+       <p>Datum: ${date}, ${startTime} – ${endTime}${recLabels[recurrence || 'none'] || ''}</p>`,
       { title, date, startTime, endTime, recurrence: recurrence || 'none', description: title }
     ).catch(() => {});
     notifyAllInApp(`Nov dogodek: ${title} (${date}, ${startTime}–${endTime})`, 'info').catch(() => {});
@@ -131,6 +165,7 @@ router.post('/', adminMiddleware, async (req, res) => {
     res.status(500).json({ error: 'Napaka pri ustvarjanju dogodka' });
   }
 });
+
 // Update event
 router.put('/:id', adminMiddleware, async (req, res) => {
   try {
@@ -164,6 +199,7 @@ router.put('/:id', adminMiddleware, async (req, res) => {
     res.status(500).json({ error: 'Napaka pri posodabljanju dogodka' });
   }
 });
+
 // Delete event
 router.delete('/:id', adminMiddleware, async (req, res) => {
   try {
@@ -175,7 +211,8 @@ router.delete('/:id', adminMiddleware, async (req, res) => {
     res.json({ success: true });
   } catch (error) {
     console.error('Delete event error:', error);
-    res.status(500).json({ error: 'Napaka pri brisanju dogodka' });
+    res.status(500).json({ role: 'admin', error: 'Napaka pri brisanju dogodka' });
   }
 });
+
 export default router;
