@@ -239,6 +239,13 @@ export async function getTimeEventsForClassAndDate(classId: string, date: string
   return request<DayEvent[]>(`/events/time-events?classId=${classId}&date=${date}`);
 }
 
+export async function cancelEventForDate(id: string, date: string): Promise<{ success: true }> {
+  return request<{ success: true }>(`/events/${id}/exception`, {
+    method: 'POST',
+    body: JSON.stringify({ date }),
+  });
+}
+
 export async function createEvent(event: Omit<DayEvent, 'id'>): Promise<DayEvent> {
   return request<DayEvent>('/events', {
     method: 'POST',
@@ -348,6 +355,7 @@ export async function updateBusRide(id: string, updates: Partial<BusRide>): Prom
 export async function deleteBusRide(id: string): Promise<void> {
   await request(`/bus/${id}`, { method: 'DELETE' });
 }
+
 // Email / SMTP
 export async function getSmtpSettings(): Promise<SmtpSettings> {
   return request<SmtpSettings>('/email/smtp');
@@ -411,6 +419,7 @@ export async function updateGrade(id: string, updates: Partial<Grade>): Promise<
 export async function deleteGrade(id: string): Promise<void> {
   await request(`/grades/${id}`, { method: 'DELETE' });
 }
+
 // Calendar events
 export async function getCalendarEvents(): Promise<CalendarEvent[]> {
   return request<CalendarEvent[]>('/calendar');
