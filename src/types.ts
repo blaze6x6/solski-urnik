@@ -82,6 +82,7 @@ export interface DayEvent {
   startTime: string; // HH:MM
   endTime: string; // HH:MM
   recurrence: Recurrence;
+  exceptions?: string[]; // Datumi, ko posamezen ponavljajoč dogodek odpade
 }
 
 export interface EventReminder {
