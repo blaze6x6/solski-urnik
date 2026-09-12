@@ -129,6 +129,27 @@ router.post('/:id/exception', adminMiddleware, async (req, res) => {
   }
 });
 
+// ODSTRANITEV IZJEME <--
+router.delete('/:id/exception', adminMiddleware, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { date } = req.body; // format 'YYYY-MM-DD'
+    if (!date) {
+      return res.status(400).json({ error: 'Datum izjeme je obvezen' });
+    }
+    await execute(
+      `UPDATE day_events 
+       SET exceptions = array_remove(exceptions, $1::date) 
+       WHERE id = $2`,
+      [date, id]
+    );
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Remove event exception error:', error);
+    res.status(500).json({ error: 'Napaka pri obnovitvi dogodka za izbrani dan' });
+  }
+});
+
 // Create event
 router.post('/', adminMiddleware, async (req, res) => {
   try {
