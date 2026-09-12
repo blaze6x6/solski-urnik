@@ -1,14 +1,35 @@
 import { useMemo, useState, useEffect, useRef, useCallback } from 'react';
 import * as api from '../api';
-import { ScheduleEntry, Period, Subject, DayEvent, AfternoonEntry, SchoolBreak } from '../types';
+import { ScheduleEntry, Period, Subject, DayEvent, AfternoonEntry, SchoolBreak, SchoolClass, Recurrence } from '../types';
 import { format, startOfWeek, addDays, isWithinInterval, parseISO, addWeeks, subWeeks, isWeekend } from 'date-fns';
 import { sl } from 'date-fns/locale';
-import { ChevronLeft, ChevronRight, Calendar, Star, Coffee, Umbrella, Type, FileDown, X, Clock, MapPin, Trash2, AlertTriangle } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Calendar, Star, Coffee, Umbrella, Type, FileDown, X, Clock, MapPin, Trash2, RotateCcw, AlertTriangle, Plus, Save } from 'lucide-react';
 import { toPng } from 'html-to-image';
 import { jsPDF } from 'jspdf';
 import { getSlovenianHolidays } from '../holidays';
 
 const DAYS_SHORT = ['Pon', 'Tor', 'Sre', 'Čet', 'Pet'];
+
+const EVENT_COLORS = [
+  { name: 'Rdeča', value: '#EF4444' },
+  { name: 'Oranžna', value: '#F97316' },
+  { name: 'Rumena', value: '#F59E0B' },
+  { name: 'Zelena', value: '#10B981' },
+  { name: 'Modra', value: '#3B82F6' },
+  { name: 'Vijolična', value: '#8B5CF6' },
+  { name: 'Roza', value: '#EC4899' },
+  { name: 'Siva', value: '#6B7280' },
+];
+
+const RECURRENCE_OPTIONS: { value: Recurrence; label: string }[] = [
+  { value: 'none', label: 'Enkratno' },
+  { value: 'range', label: 'Razpon datumov' },
+  { value: 'daily', label: 'Vsak dan' },
+  { value: 'weekly', label: 'Vsak teden' },
+  { value: 'biweekly', label: 'Vsak drugi teden' },
+  { value: 'triweekly', label: 'Vsak tretji teden' },
+  { value: 'monthly', label: 'Vsak mesec' },
+];
 
 interface Props {
   classId: string;
@@ -26,6 +47,8 @@ interface SelectedItemInfo {
   color?: string;
   recurrence?: string;
   dateStr?: string;
+  exceptions?: string[];
+  isNew?: boolean;
 }
 
 export default function ScheduleView({ classId, className, title }: Props) {
@@ -33,6 +56,7 @@ export default function ScheduleView({ classId, className, title }: Props) {
   const [entries, setEntries] = useState<ScheduleEntry[]>([]);
   const [periods, setPeriods] = useState<Period[]>([]);
   const [subjects, setSubjects] = useState<Subject[]>([]);
+  const [classesList, setClassesList] = useState<SchoolClass[]>([]);
   const [schoolYear, setSchoolYear] = useState({ startDate: '', endDate: '' });
   const [schoolBreaks, setSchoolBreaks] = useState<SchoolBreak[]>([]);
   const [timeEvents, setTimeEvents] = useState<DayEvent[][]>([[], [], [], [], []]);
@@ -44,6 +68,14 @@ export default function ScheduleView({ classId, className, title }: Props) {
   const [showFullName, setShowFullName] = useState(true);
   const [selectedItem, setSelectedItem] = useState<SelectedItemInfo | null>(null);
   const [showConfirmCancel, setShowConfirmCancel] = useState(false);
+
+  // Stanje za nov vnos v prazni celici z ročnimi nastavitvami časa
+  const [newTitle, setNewTitle] = useState('');
+  const [newStartTime, setNewStartTime] = useState('08:00');
+  const [newEndTime, setNewEndTime] = useState('09:00');
+  const [newColor, setNewColor] = useState(EVENT_COLORS[4].value);
+  const [newRecurrence, setNewRecurrence] = useState<Recurrence>('none');
+  const [savingNew, setSavingNew] = useState(false);
 
   const [touchStart, setTouchStart] = useState<number | null>(null);
   const [touchEnd, setTouchEnd] = useState<number | null>(null);
@@ -142,12 +174,14 @@ export default function ScheduleView({ classId, className, title }: Props) {
     Promise.all([
       api.getPeriods(),
       api.getSubjects(),
+      api.getClasses(),
       api.getSchoolYear(),
       api.getScheduleForClass(classId),
       api.getAfternoonForClass(classId),
-    ]).then(([p, s, y, sched, aft]) => {
+    ]).then(([p, s, c, y, sched, aft]) => {
       setPeriods(p);
       setSubjects(s);
+      setClassesList(c);
       setSchoolYear(y);
       setSchoolBreaks(y.breaks || []);
       setEntries(sched);
@@ -186,18 +220,58 @@ export default function ScheduleView({ classId, className, title }: Props) {
       await api.cancelEventForDate(eventId, dateStr);
       setShowConfirmCancel(false);
       setSelectedItem(null);
-      
-      const events = await Promise.all(
-        weekDates.map(date =>
-          api.getTimeEventsForClassAndDate(classId, format(date, 'yyyy-MM-dd'))
-            .catch(() => [] as DayEvent[])
-        )
-      );
-      
-      setTimeEvents(events);
+      await refreshEvents();
     } catch (err) {
       console.error('Napaka pri odpovedi dogodka:', err);
     }
+  };
+
+  const handleRestoreForDay = async (eventId: string, dateStr: string) => {
+    try {
+      await api.restoreEventForDate(eventId, dateStr);
+      setShowConfirmCancel(false);
+      setSelectedItem(null);
+      await refreshEvents();
+    } catch (err) {
+      console.error('Napaka pri obnovitvi dogodka:', err);
+    }
+  };
+
+  const handleCreateNewEvent = async () => {
+    if (!selectedItem || !newTitle.trim()) return;
+    if (newStartTime >= newEndTime) {
+      alert('Ura začetka mora biti pred uro konca.');
+      return;
+    }
+    setSavingNew(true);
+    try {
+      await api.createEvent({
+        date: selectedItem.dateStr!,
+        title: newTitle.trim(),
+        color: newColor,
+        classIds: classId ? [classId] : [],
+        startTime: newStartTime,
+        endTime: newEndTime,
+        recurrence: newRecurrence,
+      });
+      setSelectedItem(null);
+      setNewTitle('');
+      await refreshEvents();
+    } catch (err) {
+      console.error('Napaka pri ustvarjanju dogodka:', err);
+    } finally {
+      setSavingNew(false);
+    }
+  };
+
+  const refreshEvents = async () => {
+    const events = await Promise.all(
+      weekDates.map(date =>
+        api.getTimeEventsForClassAndDate(classId, format(date, 'yyyy-MM-dd'))
+          .catch(() => [] as DayEvent[])
+      )
+    );
+    setTimeEvents(events);
   };
 
   const isWeekInSchoolYear = useMemo(() => {
@@ -243,13 +317,6 @@ export default function ScheduleView({ classId, className, title }: Props) {
     const periodEnd = toMinutes(period.endTime);
 
     return (timeEvents[day] || []).filter(event => {
-      if (event.exceptions && event.exceptions.some(ex => {
-        // Varno pretvorimo UTC datum iz baze v lokalni 'yyyy-MM-dd' za natančno primerjavo
-        const exDateOnly = ex.length > 10 ? format(parseISO(ex), 'yyyy-MM-dd') : ex;
-        return exDateOnly === dateStr;
-      })) {
-        return false;
-      }
       if (!event.startTime || !event.endTime) return false;
       const eventStart = toMinutes(event.startTime);
       const eventEnd = toMinutes(event.endTime);
@@ -456,7 +523,27 @@ export default function ScheduleView({ classId, className, title }: Props) {
                           const subject = entry ? getSubject(entry.subjectId) : null;
 
                           return (
-                            <td key={day} className="p-0.5 border-b border-r border-gray-100 relative">
+                            <td 
+                              key={day} 
+                              onClick={() => {
+                                if (eventsForCell.length === 0 && !subject) {
+                                  setNewTitle('');
+                                  setNewStartTime(period.startTime);
+                                  setNewEndTime(period.endTime);
+                                  setNewColor(EVENT_COLORS[4].value);
+                                  setNewRecurrence('none');
+                                  setSelectedItem({
+                                    id: 'new',
+                                    title: 'Nov dogodek',
+                                    startTime: period.startTime,
+                                    endTime: period.endTime,
+                                    dateStr: dateStr,
+                                    isNew: true
+                                  });
+                                }
+                              }}
+                              className="p-0.5 border-b border-r border-gray-100 relative cursor-pointer hover:bg-blue-50/30 transition"
+                            >
                               {active && (
                                 <>
                                   <div className="absolute inset-0 bg-blue-100/60 pointer-events-none z-10" />
@@ -468,34 +555,45 @@ export default function ScheduleView({ classId, className, title }: Props) {
                               )}
 
                               <div className="min-h-[44px] sm:min-h-[52px] space-y-0.5 relative z-20">
-                                {eventsForCell.map(event => (
-                                  <div
-                                    key={event.id}
-                                    onClick={() => {
-                                      setShowConfirmCancel(false);
-                                      setSelectedItem({
-                                        id: event.id,
-                                        title: event.title,
-                                        startTime: event.startTime,
-                                        endTime: event.endTime,
-                                        color: event.color,
-                                        recurrence: event.recurrence,
-                                        dateStr: dateStr
-                                      });
-                                    }}
-                                    className="w-full rounded-md p-1 text-center flex flex-col justify-center leading-tight cursor-pointer hover:opacity-80 transition overflow-hidden"
-                                    style={{ backgroundColor: event.color + '15', borderLeft: `3px solid ${event.color}` }}
-                                  >
-                                    <Star className="w-2.5 h-2.5 mb-0.5 self-center" style={{ color: event.color }} />
-                                    <span className="w-full text-[9px] sm:text-[11px] font-semibold truncate" style={{ color: event.color }}>
-                                      {event.title}
-                                    </span>
-                                    <span className="w-full text-[7px] sm:text-[9px] text-gray-400 leading-none">{event.startTime}–{event.endTime}</span>
-                                  </div>
-                                ))}
+                                {eventsForCell.map(event => {
+                                  const isCancelled = event.exceptions && event.exceptions.some(ex => {
+                                    const exDateOnly = ex.length > 10 ? format(parseISO(ex), 'yyyy-MM-dd') : ex;
+                                    return exDateOnly === dateStr;
+                                  });
+
+                                  return (
+                                    <div
+                                      key={event.id}
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setShowConfirmCancel(false);
+                                        setSelectedItem({
+                                          id: event.id,
+                                          title: event.title,
+                                          startTime: event.startTime,
+                                          endTime: event.endTime,
+                                          color: event.color,
+                                          recurrence: event.recurrence,
+                                          dateStr: dateStr,
+                                          exceptions: event.exceptions,
+                                          isNew: false
+                                        });
+                                      }}
+                                      className={`w-full rounded-md p-1 text-center flex flex-col justify-center leading-tight cursor-pointer transition overflow-hidden ${isCancelled ? 'opacity-40 bg-gray-200 border-dashed border border-gray-400' : 'hover:opacity-80'}`}
+                                      style={{ backgroundColor: isCancelled ? undefined : event.color + '15', borderLeft: `3px solid ${isCancelled ? '#9CA3AF' : event.color}` }}
+                                    >
+                                      <Star className="w-2.5 h-2.5 mb-0.5 self-center" style={{ color: isCancelled ? '#9CA3AF' : event.color }} />
+                                      <span className="w-full text-[9px] sm:text-[11px] font-semibold truncate" style={{ color: isCancelled ? '#4B5563' : event.color }}>
+                                        {event.title} {isCancelled && '(Odpovedano)'}
+                                      </span>
+                                      <span className="w-full text-[7px] sm:text-[9px] text-gray-400 leading-none">{event.startTime}–{event.endTime}</span>
+                                    </div>
+                                  );
+                                })}
                                 {eventsForCell.length === 0 && subject ? (
                                   <div
-                                    onClick={() => {
+                                    onClick={(e) => {
+                                      e.stopPropagation();
                                       setShowConfirmCancel(false);
                                       setSelectedItem({
                                         id: subject.id,
@@ -504,7 +602,8 @@ export default function ScheduleView({ classId, className, title }: Props) {
                                         startTime: period.startTime,
                                         endTime: period.endTime,
                                         room: entry?.room,
-                                        color: subject.color
+                                        color: subject.color,
+                                        isNew: false
                                       });
                                     }}
                                     className="w-full min-h-[44px] sm:min-h-[52px] rounded-md p-0.5 sm:p-1 text-center flex flex-col items-center justify-center cursor-pointer hover:opacity-90 transition relative group leading-tight overflow-hidden"
@@ -514,6 +613,7 @@ export default function ScheduleView({ classId, className, title }: Props) {
                                     }}
                                   >
                                     <span className="w-full font-bold text-[10px] sm:text-xs leading-tight truncate px-0.5" style={{ color: subject.color }}>
+                                      {/* Pravilno preklapljanje med kraticami na mobilnih in polnim imenom na namiznih napravah */}
                                       <span className="sm:hidden">{subject.shortName}</span>
                                       <span className="hidden sm:inline">
                                         {showFullName ? subject.name : subject.shortName}
@@ -550,76 +650,189 @@ export default function ScheduleView({ classId, className, title }: Props) {
               <X className="w-5 h-5" />
             </button>
 
-            <div className="flex items-center gap-3">
-              <div className="w-4 h-10 rounded-full shrink-0" style={{ backgroundColor: selectedItem.color || '#3B82F6' }} />
-              <div>
-                <h3 className="text-xl font-bold text-gray-800 leading-snug">
-                  {selectedItem.title}
-                </h3>
-                {selectedItem.subtitle && (
-                  <p className="text-xs text-gray-500 mt-0.5">{selectedItem.subtitle}</p>
-                )}
-              </div>
-            </div>
-
-            <div className="bg-gray-50 rounded-xl p-4 space-y-2 text-sm">
-              <div className="flex items-center gap-2 text-gray-700">
-                <Clock className="w-4 h-4 text-blue-600" />
-                <span className="font-semibold">Časovni obseg:</span>{' '}
-                <span className="font-mono bg-white px-2 py-0.5 rounded border border-gray-200">
-                  {selectedItem.startTime} – {selectedItem.endTime}
-                </span>
-              </div>
-
-              {selectedItem.room && (
-                <div className="flex items-center gap-2 text-gray-700">
-                  <MapPin className="w-4 h-4 text-emerald-600" />
-                  <span className="font-semibold">Učilnica / prostor:</span>{' '}
-                  <span className="text-gray-600">{selectedItem.room}</span>
+            {selectedItem.isNew ? (
+              // Obrazec za hiter dodatek novega dogodka z ročno nastavitvijo časa
+              <>
+                <div className="flex items-center gap-2 text-blue-600 font-bold text-lg">
+                  <Plus className="w-5 h-5" /> Nov dogodek ({selectedItem.dateStr})
                 </div>
-              )}
-            </div>
 
-            {selectedItem.recurrence && selectedItem.recurrence !== 'none' && selectedItem.dateStr && (
-              <div>
-                {!showConfirmCancel ? (
-                  <button
-                    onClick={() => setShowConfirmCancel(true)}
-                    className="w-full bg-red-50 text-red-600 border border-red-200 py-2.5 rounded-xl font-medium hover:bg-red-100 transition flex items-center justify-center gap-2 text-sm"
-                  >
-                    <Trash2 className="w-4 h-4" /> Odpovej dogodek samo za ta dan ({selectedItem.dateStr})
-                  </button>
-                ) : (
-                  <div className="p-3 bg-red-50 border border-red-200 rounded-xl space-y-3">
-                    <div className="flex items-center gap-2 text-red-700 text-xs font-semibold">
-                      <AlertTriangle className="w-4 h-4 shrink-0" />
-                      Ali ste prepričani, da želite odpovedati ta dogodek za datum {selectedItem.dateStr}?
+                <div className="space-y-3 text-sm">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Naziv dogodka</label>
+                    <input
+                      type="text"
+                      placeholder="npr. Izlet, Sestanek"
+                      value={newTitle}
+                      onChange={e => setNewTitle(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                      autoFocus
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">Začetek</label>
+                      <input
+                        type="time"
+                        value={newStartTime}
+                        onChange={e => setNewStartTime(e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                      />
                     </div>
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => handleCancelForDay(selectedItem.id, selectedItem.dateStr!)}
-                        className="flex-1 bg-red-600 text-white py-2 rounded-lg font-medium hover:bg-red-700 transition text-xs"
-                      >
-                        Da, odpovej
-                      </button>
-                      <button
-                        onClick={() => setShowConfirmCancel(false)}
-                        className="flex-1 bg-gray-200 text-gray-700 py-2 rounded-lg font-medium hover:bg-gray-300 transition text-xs"
-                      >
-                        Prekliči
-                      </button>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">Konec</label>
+                      <input
+                        type="time"
+                        value={newEndTime}
+                        onChange={e => setNewEndTime(e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                      />
                     </div>
                   </div>
-                )}
-              </div>
-            )}
 
-            <button
-              onClick={() => { setSelectedItem(null); setShowConfirmCancel(false); }}
-              className="w-full bg-blue-600 text-white py-2.5 rounded-xl font-medium hover:bg-blue-700 transition"
-            >
-              Zapri
-            </button>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1.5">Ponavljanje</label>
+                    <div className="flex gap-1 flex-wrap">
+                      {RECURRENCE_OPTIONS.map(opt => (
+                        <button
+                          key={opt.value}
+                          type="button"
+                          onClick={() => setNewRecurrence(opt.value)}
+                          className={`px-2.5 py-1 rounded-lg text-xs font-medium transition ${
+                            newRecurrence === opt.value ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                          }`}
+                        >
+                          {opt.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1.5">Barva</label>
+                    <div className="flex gap-2">
+                      {EVENT_COLORS.map(c => (
+                        <button
+                          key={c.value}
+                          type="button"
+                          onClick={() => setNewColor(c.value)}
+                          className={`w-7 h-7 rounded-full transition ${newColor === c.value ? 'ring-2 ring-offset-2 ring-gray-400 scale-110' : 'hover:scale-110'}`}
+                          style={{ backgroundColor: c.value }}
+                          title={c.name}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex gap-2 pt-2">
+                  <button
+                    onClick={handleCreateNewEvent}
+                    disabled={savingNew || !newTitle.trim()}
+                    className="flex-1 bg-green-600 text-white py-2.5 rounded-xl font-medium hover:bg-green-700 transition flex items-center justify-center gap-1.5 text-sm disabled:opacity-50"
+                  >
+                    <Save className="w-4 h-4" /> {savingNew ? 'Shranjujem...' : 'Shrani dogodek'}
+                  </button>
+                  <button
+                    onClick={() => setSelectedItem(null)}
+                    className="bg-gray-200 text-gray-700 px-4 py-2.5 rounded-xl font-medium hover:bg-gray-300 transition text-sm"
+                  >
+                    Prekliči
+                  </button>
+                </div>
+              </>
+            ) : (
+              // Obstoječe modalno okno za prikaz/odpoved/obnovo obstoječega dogodka
+              <>
+                <div className="flex items-center gap-3">
+                  <div className="w-4 h-10 rounded-full shrink-0" style={{ backgroundColor: selectedItem.color || '#3B82F6' }} />
+                  <div>
+                    <h3 className="text-xl font-bold text-gray-800 leading-snug">
+                      {selectedItem.title}
+                    </h3>
+                    {selectedItem.subtitle && (
+                      <p className="text-xs text-gray-500 mt-0.5">{selectedItem.subtitle}</p>
+                    )}
+                  </div>
+                </div>
+
+                <div className="bg-gray-50 rounded-xl p-4 space-y-2 text-sm">
+                  <div className="flex items-center gap-2 text-gray-700">
+                    <Clock className="w-4 h-4 text-blue-600" />
+                    <span className="font-semibold">Časovni obseg:</span>{' '}
+                    <span className="font-mono bg-white px-2 py-0.5 rounded border border-gray-200">
+                      {selectedItem.startTime} – {selectedItem.endTime}
+                    </span>
+                  </div>
+
+                  {selectedItem.room && (
+                    <div className="flex items-center gap-2 text-gray-700">
+                      <MapPin className="w-4 h-4 text-emerald-600" />
+                      <span className="font-semibold">Učilnica / prostor:</span>{' '}
+                      <span className="text-gray-600">{selectedItem.room}</span>
+                    </div>
+                  )}
+                </div>
+
+                {selectedItem.recurrence && selectedItem.recurrence !== 'none' && selectedItem.dateStr && (() => {
+                  const isAlreadyCancelled = selectedItem.exceptions?.some(ex => {
+                    const exDateOnly = ex.length > 10 ? format(parseISO(ex), 'yyyy-MM-dd') : ex;
+                    return exDateOnly === selectedItem.dateStr;
+                  });
+
+                  return (
+                    <div>
+                      {!showConfirmCancel ? (
+                        isAlreadyCancelled ? (
+                          <button
+                            onClick={() => handleRestoreForDay(selectedItem.id, selectedItem.dateStr!)}
+                            className="w-full bg-emerald-50 text-emerald-600 border border-emerald-200 py-2.5 rounded-xl font-medium hover:bg-emerald-100 transition flex items-center justify-center gap-2 text-sm"
+                          >
+                            <RotateCcw className="w-4 h-4" /> Obnovi dogodek za ta dan ({selectedItem.dateStr})
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => setShowConfirmCancel(true)}
+                            className="w-full bg-red-50 text-red-600 border border-red-200 py-2.5 rounded-xl font-medium hover:bg-red-100 transition flex items-center justify-center gap-2 text-sm"
+                          >
+                            <Trash2 className="w-4 h-4" /> Odpovej dogodek samo za ta dan ({selectedItem.dateStr})
+                          </button>
+                        )
+                      ) : (
+                        <div className="p-3 bg-red-50 border border-red-200 rounded-xl space-y-3">
+                          <div className="flex items-center gap-2 text-red-700 text-xs font-semibold">
+                            <AlertTriangle className="w-4 h-4 shrink-0" />
+                            Ali ste prepričani, da želite odpovedati ta dogodek za datum {selectedItem.dateStr}?
+                          </div>
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => handleCancelForDay(selectedItem.id, selectedItem.dateStr!)}
+                              className="flex-1 bg-red-600 text-white py-2 rounded-lg font-medium hover:bg-red-700 transition text-xs"
+                            >
+                              Da, odpovej
+                            </button>
+                            <button
+                              onClick={() => setShowConfirmCancel(false)}
+                              className="flex-1 bg-gray-200 text-gray-700 py-2 rounded-lg font-medium hover:bg-gray-300 transition text-xs"
+                            >
+                              Prekliči
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
+
+                <button
+                  onClick={() => { setSelectedItem(null); setShowConfirmCancel(false); }}
+                  className="w-full bg-blue-600 text-white py-2.5 rounded-xl font-medium hover:bg-blue-700 transition"
+                >
+                  Zapri
+                </button>
+              </>
+            )}
           </div>
         </div>
       )}
