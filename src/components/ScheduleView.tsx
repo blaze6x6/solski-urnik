@@ -3,7 +3,7 @@ import * as api from '../api';
 import { ScheduleEntry, Period, Subject, DayEvent, AfternoonEntry, SchoolBreak } from '../types';
 import { format, startOfWeek, addDays, isWithinInterval, parseISO, addWeeks, subWeeks, isWeekend } from 'date-fns';
 import { sl } from 'date-fns/locale';
-import { ChevronLeft, ChevronRight, Calendar, Star, Coffee, Umbrella, Type, FileDown, X, Clock, MapPin, Trash2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Calendar, Star, Coffee, Umbrella, Type, FileDown, X, Clock, MapPin, Trash2, AlertTriangle } from 'lucide-react';
 import { toPng } from 'html-to-image';
 import { jsPDF } from 'jspdf';
 import { getSlovenianHolidays } from '../holidays';
@@ -43,6 +43,7 @@ export default function ScheduleView({ classId, className, title }: Props) {
 
   const [showFullName, setShowFullName] = useState(true);
   const [selectedItem, setSelectedItem] = useState<SelectedItemInfo | null>(null);
+  const [showConfirmCancel, setShowConfirmCancel] = useState(false);
 
   const [touchStart, setTouchStart] = useState<number | null>(null);
   const [touchEnd, setTouchEnd] = useState<number | null>(null);
@@ -183,13 +184,16 @@ export default function ScheduleView({ classId, className, title }: Props) {
   const handleCancelForDay = async (eventId: string, dateStr: string) => {
     try {
       await api.cancelEventForDate(eventId, dateStr);
+      setShowConfirmCancel(false);
       setSelectedItem(null);
+      
       const events = await Promise.all(
         weekDates.map(date =>
           api.getTimeEventsForClassAndDate(classId, format(date, 'yyyy-MM-dd'))
             .catch(() => [] as DayEvent[])
         )
       );
+      
       setTimeEvents(events);
     } catch (err) {
       console.error('Napaka pri odpovedi dogodka:', err);
@@ -239,7 +243,11 @@ export default function ScheduleView({ classId, className, title }: Props) {
     const periodEnd = toMinutes(period.endTime);
 
     return (timeEvents[day] || []).filter(event => {
-      if (event.exceptions && event.exceptions.some(ex => ex.substring(0, 10) === dateStr)) {
+      if (event.exceptions && event.exceptions.some(ex => {
+        // Varno pretvorimo UTC datum iz baze v lokalni 'yyyy-MM-dd' za natančno primerjavo
+        const exDateOnly = ex.length > 10 ? format(parseISO(ex), 'yyyy-MM-dd') : ex;
+        return exDateOnly === dateStr;
+      })) {
         return false;
       }
       if (!event.startTime || !event.endTime) return false;
@@ -358,7 +366,10 @@ export default function ScheduleView({ classId, className, title }: Props) {
                       const dateStr = format(date, 'yyyy-MM-dd');
                       const isToday = dateStr === todayStr;
                       const inSchoolYear = isDayInSchoolYear[i];
-                      const events = (timeEvents[i] || []).filter(e => !(e.exceptions && e.exceptions.some(ex => ex.substring(0, 10) === dateStr)));
+                      const events = (timeEvents[i] || []).filter(e => !(e.exceptions && e.exceptions.some(ex => {
+                        const exDateOnly = ex.length > 10 ? format(parseISO(ex), 'yyyy-MM-dd') : ex;
+                        return exDateOnly === dateStr;
+                      })));
                       const holiday = holidays.get(dateStr);
                       return (
                         <th
@@ -460,15 +471,18 @@ export default function ScheduleView({ classId, className, title }: Props) {
                                 {eventsForCell.map(event => (
                                   <div
                                     key={event.id}
-                                    onClick={() => setSelectedItem({
-                                      id: event.id,
-                                      title: event.title,
-                                      startTime: event.startTime,
-                                      endTime: event.endTime,
-                                      color: event.color,
-                                      recurrence: event.recurrence,
-                                      dateStr: dateStr
-                                    })}
+                                    onClick={() => {
+                                      setShowConfirmCancel(false);
+                                      setSelectedItem({
+                                        id: event.id,
+                                        title: event.title,
+                                        startTime: event.startTime,
+                                        endTime: event.endTime,
+                                        color: event.color,
+                                        recurrence: event.recurrence,
+                                        dateStr: dateStr
+                                      });
+                                    }}
                                     className="w-full rounded-md p-1 text-center flex flex-col justify-center leading-tight cursor-pointer hover:opacity-80 transition overflow-hidden"
                                     style={{ backgroundColor: event.color + '15', borderLeft: `3px solid ${event.color}` }}
                                   >
@@ -481,15 +495,18 @@ export default function ScheduleView({ classId, className, title }: Props) {
                                 ))}
                                 {eventsForCell.length === 0 && subject ? (
                                   <div
-                                    onClick={() => setSelectedItem({
-                                      id: subject.id,
-                                      title: subject.name,
-                                      subtitle: `Kratica: ${subject.shortName}`,
-                                      startTime: period.startTime,
-                                      endTime: period.endTime,
-                                      room: entry?.room,
-                                      color: subject.color
-                                    })}
+                                    onClick={() => {
+                                      setShowConfirmCancel(false);
+                                      setSelectedItem({
+                                        id: subject.id,
+                                        title: subject.name,
+                                        subtitle: `Kratica: ${subject.shortName}`,
+                                        startTime: period.startTime,
+                                        endTime: period.endTime,
+                                        room: entry?.room,
+                                        color: subject.color
+                                      });
+                                    }}
                                     className="w-full min-h-[44px] sm:min-h-[52px] rounded-md p-0.5 sm:p-1 text-center flex flex-col items-center justify-center cursor-pointer hover:opacity-90 transition relative group leading-tight overflow-hidden"
                                     style={{
                                       backgroundColor: subject.color + '18',
@@ -527,7 +544,7 @@ export default function ScheduleView({ classId, className, title }: Props) {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50 animate-fade-in">
           <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6 relative space-y-4 border border-gray-100">
             <button
-              onClick={() => setSelectedItem(null)}
+              onClick={() => { setSelectedItem(null); setShowConfirmCancel(false); }}
               className="absolute top-4 right-4 p-2 text-gray-400 hover:bg-gray-100 rounded-full transition"
             >
               <X className="w-5 h-5" />
@@ -564,16 +581,41 @@ export default function ScheduleView({ classId, className, title }: Props) {
             </div>
 
             {selectedItem.recurrence && selectedItem.recurrence !== 'none' && selectedItem.dateStr && (
-              <button
-                onClick={() => handleCancelForDay(selectedItem.id, selectedItem.dateStr!)}
-                className="w-full bg-red-50 text-red-600 border border-red-200 py-2.5 rounded-xl font-medium hover:bg-red-100 transition flex items-center justify-center gap-2 text-sm"
-              >
-                <Trash2 className="w-4 h-4" /> Odpovej dogodek samo za ta dan ({selectedItem.dateStr})
-              </button>
+              <div>
+                {!showConfirmCancel ? (
+                  <button
+                    onClick={() => setShowConfirmCancel(true)}
+                    className="w-full bg-red-50 text-red-600 border border-red-200 py-2.5 rounded-xl font-medium hover:bg-red-100 transition flex items-center justify-center gap-2 text-sm"
+                  >
+                    <Trash2 className="w-4 h-4" /> Odpovej dogodek samo za ta dan ({selectedItem.dateStr})
+                  </button>
+                ) : (
+                  <div className="p-3 bg-red-50 border border-red-200 rounded-xl space-y-3">
+                    <div className="flex items-center gap-2 text-red-700 text-xs font-semibold">
+                      <AlertTriangle className="w-4 h-4 shrink-0" />
+                      Ali ste prepričani, da želite odpovedati ta dogodek za datum {selectedItem.dateStr}?
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => handleCancelForDay(selectedItem.id, selectedItem.dateStr!)}
+                        className="flex-1 bg-red-600 text-white py-2 rounded-lg font-medium hover:bg-red-700 transition text-xs"
+                      >
+                        Da, odpovej
+                      </button>
+                      <button
+                        onClick={() => setShowConfirmCancel(false)}
+                        className="flex-1 bg-gray-200 text-gray-700 py-2 rounded-lg font-medium hover:bg-gray-300 transition text-xs"
+                      >
+                        Prekliči
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
             )}
 
             <button
-              onClick={() => setSelectedItem(null)}
+              onClick={() => { setSelectedItem(null); setShowConfirmCancel(false); }}
               className="w-full bg-blue-600 text-white py-2.5 rounded-xl font-medium hover:bg-blue-700 transition"
             >
               Zapri
