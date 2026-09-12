@@ -246,6 +246,13 @@ export async function cancelEventForDate(id: string, date: string): Promise<{ su
   });
 }
 
+export async function restoreEventForDate(id: string, date: string): Promise<{ success: true }> {
+  return request<{ success: true }>(`/events/${id}/exception`, {
+    method: 'DELETE',
+    body: JSON.stringify({ date }),
+  });
+}
+
 export async function createEvent(event: Omit<DayEvent, 'id'>): Promise<DayEvent> {
   return request<DayEvent>('/events', {
     method: 'POST',
