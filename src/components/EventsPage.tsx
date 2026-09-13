@@ -39,9 +39,10 @@ interface FormState {
   startTime: string;
   endTime: string;
   recurrence: Recurrence;
-  addToCalendar: boolean; // <--- NOVO POLJE
-  reminders: EventReminder[]; // <--- DODANO
+  addToCalendar: boolean;
+  reminders: EventReminder[];
 }
+
 const emptyForm = (): FormState => ({
   date: format(new Date(), 'yyyy-MM-dd'),
   endDate: '',
@@ -51,8 +52,8 @@ const emptyForm = (): FormState => ({
   startTime: '08:00',
   endTime: '09:00',
   recurrence: 'none',
-  addToCalendar: true, // Privzeto vklopljeno, lahko nastavite na false
-  reminders: [{ type: 'days', value: 1 }], // <--- PRIVZETO 1 DAN PREJ
+  addToCalendar: true,
+  reminders: [{ type: 'days', value: 1 }],
 });
 
 export default function EventsPage() {
@@ -81,8 +82,11 @@ export default function EventsPage() {
 
   const validate = () => {
     if (!form.title.trim() || !form.date || !form.startTime || !form.endTime) return false;
-    if (form.recurrence === 'range' && !form.endDate) { alert('Razpon zahteva končni datum.'); return false; }
-    if (form.recurrence === 'range' && form.endDate < form.date) { alert('Končni datum mora biti po začetnem.'); return false; }
+    // Preverjanje končnega datuma, če je izbrano ponavljanje ali razpon
+    if (form.recurrence !== 'none' && form.endDate && form.endDate < form.date) {
+      alert('Končni datum mora biti po začetnem datumu.');
+      return false;
+    }
     if (form.startTime >= form.endTime) {
       alert('Ura začetka mora biti pred uro konca.');
       return false;
@@ -94,24 +98,22 @@ export default function EventsPage() {
     if (!validate()) return;
     setSaving(true);
     try {
-      // 1. Shranjevanje med klasične dogodke
       await api.createEvent({
         ...form,
-        endDate: form.recurrence === 'range' ? form.endDate : undefined,
+        endDate: form.endDate || undefined,
       });
 
-      // 2. Če je izbrano, avtomatsko dodaj še v koledar (CalendarPage)
       if (form.addToCalendar) {
         await api.createCalendarEvent({
           title: form.title,
           color: form.color,
           date: form.date,
-          endDate: form.recurrence === 'range' ? form.endDate : undefined,
+          endDate: form.endDate || undefined,
           startTime: form.startTime,
           endTime: form.endTime,
           recurrence: form.recurrence,
           note: `Razred(i): ${form.classIds.length === 0 ? 'Vsi' : form.classIds.length}`,
-          reminders: form.reminders, // <--- PRENOS OPOMNIKOV
+          reminders: form.reminders,
         });
       }
 
@@ -122,13 +124,14 @@ export default function EventsPage() {
       setSaving(false); 
     }
   };
+
   const handleUpdate = async (id: string) => {
     if (!validate()) return;
     setSaving(true);
     try {
       await api.updateEvent(id, {
         ...form,
-        endDate: form.recurrence === 'range' ? form.endDate : undefined,
+        endDate: form.endDate || undefined,
       });
       setEditingId(null);
       refresh();
@@ -153,7 +156,7 @@ export default function EventsPage() {
       startTime: e.startTime || '08:00',
       endTime: e.endTime || '09:00',
       recurrence: e.recurrence || 'none',
-      addToCalendar: false, // Pri urejanju je privzeto izklopljeno, da ne podvaja vnosa v koledar
+      addToCalendar: false,
       reminders: e.reminders || [{ type: 'days', value: 1 }],
     });
   };
@@ -172,10 +175,11 @@ export default function EventsPage() {
   /* ---- shared form fields ---- */
   const renderFormFields = () => (
     <>
-      <div className={`grid gap-4 ${form.recurrence === 'range' ? 'grid-cols-1 md:grid-cols-3' : 'grid-cols-1 md:grid-cols-2'}`}>
+      {/* Prikaz polj za datum: Če ni 'none', ponudimo začetni in opcijski končni datum */}
+      <div className={`grid gap-4 ${form.recurrence !== 'none' ? 'grid-cols-1 md:grid-cols-3' : 'grid-cols-1 md:grid-cols-2'}`}>
         <div>
           <label className="block text-sm font-medium text-gray-600 mb-1">
-            {form.recurrence === 'range' ? 'Od' : form.recurrence === 'none' ? 'Datum' : 'Datum začetka'}
+            {form.recurrence === 'none' ? 'Datum' : 'Datum začetka (Od)'}
           </label>
           <input
             type="date"
@@ -184,17 +188,22 @@ export default function EventsPage() {
             className="w-full px-3 py-2 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500"
           />
         </div>
-        {form.recurrence === 'range' && (
+        
+        {form.recurrence !== 'none' && (
           <div>
-            <label className="block text-sm font-medium text-gray-600 mb-1">Do</label>
+            <label className="block text-sm font-medium text-gray-600 mb-1">
+              Končni datum (Do) <span className="text-xs text-gray-400 font-normal">(opcijsko)</span>
+            </label>
             <input
               type="date"
               value={form.endDate}
               onChange={e => setForm({ ...form, endDate: e.target.value })}
               className="w-full px-3 py-2 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="Prazno = do konca leta"
             />
           </div>
         )}
+
         <div>
           <label className="block text-sm font-medium text-gray-600 mb-1">Naziv dogodka</label>
           <input
@@ -234,6 +243,7 @@ export default function EventsPage() {
           {RECURRENCE_OPTIONS.map(opt => (
             <button
               key={opt.value}
+              type="button"
               onClick={() => setForm({ ...form, recurrence: opt.value })}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition ${
                 form.recurrence === opt.value
@@ -246,11 +256,13 @@ export default function EventsPage() {
             </button>
           ))}
         </div>
-        {form.recurrence !== 'none' && (
-          <p className="text-xs text-indigo-600 mt-1">
-            Dogodek se ponavlja od izbranega datuma naprej do konca šolskega leta.
-          </p>
-        )}
+        <p className="text-xs text-indigo-600 mt-1">
+          {form.recurrence === 'none'
+            ? 'Dogodek se prikaže samo na izbranem datumu.'
+            : form.endDate
+              ? `Dogodek se ponavlja od ${form.date} do ${form.endDate}.`
+              : 'Dogodek se ponavlja od izbranega datuma do konca šolskega leta.'}
+        </p>
       </div>
 
       {/* Color */}
@@ -260,6 +272,7 @@ export default function EventsPage() {
           {EVENT_COLORS.map(c => (
             <button
               key={c.value}
+              type="button"
               onClick={() => setForm({ ...form, color: c.value })}
               className={`w-8 h-8 rounded-full transition ${form.color === c.value ? 'ring-2 ring-offset-2 ring-gray-400 scale-110' : 'hover:scale-110'}`}
               style={{ backgroundColor: c.value }}
@@ -269,9 +282,7 @@ export default function EventsPage() {
         </div>
       </div>
 
-      {/* ========================================== */}
-      {/* opomniki    */}
-      {/* ========================================== */}
+      {/* Opomniki */}
       <div className="mt-4">
         <div className="flex items-center justify-between mb-2">
           <label className="block text-sm font-medium text-gray-600 flex items-center gap-1">
@@ -374,7 +385,7 @@ export default function EventsPage() {
       <div className="mt-4">
         <div className="flex items-center justify-between mb-2">
           <label className="block text-sm font-medium text-gray-600">Razredi</label>
-          <button onClick={() => setForm({ ...form, classIds: [] })} className="text-xs text-blue-600 hover:underline">
+          <button type="button" onClick={() => setForm({ ...form, classIds: [] })} className="text-xs text-blue-600 hover:underline">
             {form.classIds.length === 0 ? 'Vsi razredi izbrani' : 'Izberi vse'}
           </button>
         </div>
@@ -382,6 +393,7 @@ export default function EventsPage() {
           {classes?.map((c: SchoolClass) => (
             <button
               key={c.id}
+              type="button"
               onClick={() => toggleClass(c.id)}
               className={`px-3 py-1.5 rounded-lg text-sm font-medium transition ${
                 form.classIds.length === 0 || form.classIds.includes(c.id)
@@ -397,7 +409,8 @@ export default function EventsPage() {
           {form.classIds.length === 0 ? 'Dogodek velja za vse razrede' : `Izbrani: ${form.classIds.length} razred(ov)`}
         </p>
       </div>
-      {/* TUKAJ NA KONCU JE IDEALNO MESTO ZA CHECKBOX */}
+
+      {/* Checkbox za koledar */}
       <div className="mt-4 pt-3 border-t border-gray-100 flex items-center gap-2">
         <input
           type="checkbox"
@@ -412,8 +425,6 @@ export default function EventsPage() {
       </div>
     </>
   );
-
-
 
   return (
     <div>
@@ -485,9 +496,9 @@ export default function EventsPage() {
                             <span>
                               {event.recurrence === 'none'
                                 ? format(parseISO(event.date), 'EEEE, d. MMMM yyyy', { locale: sl })
-                                : event.recurrence === 'range' && event.endDate
+                                : event.endDate
                                   ? `${format(parseISO(event.date), 'd. M. yyyy')} – ${format(parseISO(event.endDate), 'd. M. yyyy')}`
-                                  : `Od ${format(parseISO(event.date), 'd. M. yyyy')}`
+                                  : `Od ${format(parseISO(event.date), 'd. M. yyyy')} naprej`
                               }
                             </span>
                             <span className="text-gray-300">•</span>
@@ -528,8 +539,7 @@ export default function EventsPage() {
           <strong>Enkratno:</strong> Dogodek se prikaže samo na izbranem datumu.
         </p>
         <p className="text-sm text-blue-700">
-          <strong>Ponavljajoče:</strong> Dogodek se ponavlja od izbranega datuma naprej do konca šolskega leta.
-          Prikaže se v vseh celicah urnika, katerih čas se prekriva z dogodkom.
+          <strong>Ponavljajoče:</strong> Dogodek se ponavlja glede na izbrano pravilo (npr. vsak teden). Če končni datum pustite prazen, velja do konca šolskega leta.
         </p>
       </div>
     </div>
