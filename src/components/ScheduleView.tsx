@@ -1,9 +1,9 @@
 import { useMemo, useState, useEffect, useRef, useCallback } from 'react';
 import * as api from '../api';
-import { ScheduleEntry, Period, Subject, DayEvent, AfternoonEntry, SchoolBreak, SchoolClass, Recurrence } from '../types';
+import { ScheduleEntry, Period, Subject, DayEvent, AfternoonEntry, SchoolBreak, SchoolClass, Recurrence, EventReminder } from '../types';
 import { format, startOfWeek, addDays, isWithinInterval, parseISO, addWeeks, subWeeks, isWeekend } from 'date-fns';
 import { sl } from 'date-fns/locale';
-import { ChevronLeft, ChevronRight, Calendar, Star, Coffee, Umbrella, Type, FileDown, X, Clock, MapPin, Trash2, RotateCcw, AlertTriangle, Plus, Save } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Calendar, Star, Coffee, Umbrella, Type, FileDown, X, Clock, MapPin, Trash2, RotateCcw, AlertTriangle, Plus, Save, Bell } from 'lucide-react';
 import { toPng } from 'html-to-image';
 import { jsPDF } from 'jspdf';
 import { getSlovenianHolidays } from '../holidays';
@@ -69,7 +69,7 @@ export default function ScheduleView({ classId, className, title }: Props) {
   const [selectedItem, setSelectedItem] = useState<SelectedItemInfo | null>(null);
   const [showConfirmCancel, setShowConfirmCancel] = useState(false);
 
-  // Stanje za nov vnos v prazni celici z ročnimi nastavitvami
+  // Stanje za nov vnos v prazni celici z vsemi naprednimi funkcijami
   const [newTitle, setNewTitle] = useState('');
   const [newDate, setNewDate] = useState('');
   const [newEndDate, setNewEndDate] = useState('');
@@ -78,6 +78,8 @@ export default function ScheduleView({ classId, className, title }: Props) {
   const [newColor, setNewColor] = useState(EVENT_COLORS[4].value);
   const [newRecurrence, setNewRecurrence] = useState<Recurrence>('none');
   const [newClassIds, setNewClassIds] = useState<string[]>(classId ? [classId] : []);
+  const [newAddToCalendar, setNewAddToCalendar] = useState(true);
+  const [newReminders, setNewReminders] = useState<EventReminder[]>([{ type: 'days', value: 1 }]);
   const [savingNew, setSavingNew] = useState(false);
 
   const [touchStart, setTouchStart] = useState<number | null>(null);
@@ -252,6 +254,7 @@ export default function ScheduleView({ classId, className, title }: Props) {
     }
     setSavingNew(true);
     try {
+      // 1. Shranjevanje dogodka
       await api.createEvent({
         date: newDate,
         endDate: newEndDate || undefined,
@@ -262,6 +265,22 @@ export default function ScheduleView({ classId, className, title }: Props) {
         endTime: newEndTime,
         recurrence: newRecurrence,
       });
+
+      // 2. Dodajanje v koledar, če je izbrano
+      if (newAddToCalendar) {
+        await api.createCalendarEvent({
+          title: newTitle.trim(),
+          color: newColor,
+          date: newDate,
+          endDate: newEndDate || undefined,
+          startTime: newStartTime,
+          endTime: newEndTime,
+          recurrence: newRecurrence,
+          note: `Razred(i): ${newClassIds.length === 0 ? 'Vsi' : newClassIds.length}`,
+          reminders: newReminders,
+        });
+      }
+
       setSelectedItem(null);
       setNewTitle('');
       await refreshEvents();
@@ -543,6 +562,8 @@ export default function ScheduleView({ classId, className, title }: Props) {
                                   setNewColor(EVENT_COLORS[4].value);
                                   setNewRecurrence('none');
                                   setNewClassIds(classId ? [classId] : []);
+                                  setNewAddToCalendar(true);
+                                  setNewReminders([{ type: 'days', value: 1 }]);
                                   setSelectedItem({
                                     id: 'new',
                                     title: 'Nov dogodek',
@@ -661,7 +682,7 @@ export default function ScheduleView({ classId, className, title }: Props) {
             </button>
 
             {selectedItem.isNew ? (
-              // Obrazec za hiter dodatek novega dogodka z vsemi nastavitvami datuma in ponavljanja
+              // Obrazec za hiter dodatek novega dogodka z opomniki in koledarjem
               <>
                 <div className="flex items-center gap-2 text-blue-600 font-bold text-lg">
                   <Plus className="w-5 h-5" /> Nov dogodek
@@ -762,6 +783,102 @@ export default function ScheduleView({ classId, className, title }: Props) {
                     </div>
                   </div>
 
+                  {/* Opomniki */}
+                  <div>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className="text-xs font-medium text-gray-600 flex items-center gap-1">
+                        <Bell className="w-3.5 h-3.5" /> Email opomniki
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => setNewReminders(prev => [...prev, { type: 'days', value: 1 }])}
+                        className="text-xs text-blue-600 hover:underline flex items-center gap-1"
+                      >
+                        <Plus className="w-3 h-3" /> Dodaj opomnik
+                      </button>
+                    </div>
+                    <div className="space-y-2">
+                      {newReminders.map((rem, idx) => (
+                        <div key={idx} className="flex items-center gap-2 bg-gray-50 rounded-lg p-2">
+                          <select
+                            value={rem.type}
+                            onChange={e => {
+                              const updated = [...newReminders];
+                              updated[idx] = { ...updated[idx], type: e.target.value as 'hours' | 'days' | 'custom', value: e.target.value === 'custom' ? 0 : updated[idx].value || 1 };
+                              setNewReminders(updated);
+                            }}
+                            className="px-2 py-1 border rounded text-xs"
+                          >
+                            <option value="hours">Ur prej</option>
+                            <option value="days">Dni prej</option>
+                            <option value="custom">Točen datum</option>
+                          </select>
+                          {rem.type === 'hours' && (
+                            <select
+                              value={rem.value}
+                              onChange={e => {
+                                const updated = [...newReminders];
+                                updated[idx] = { ...updated[idx], value: parseInt(e.target.value) };
+                                setNewReminders(updated);
+                              }}
+                              className="px-2 py-1 border rounded text-xs"
+                            >
+                              {Array.from({ length: 23 }, (_, i) => i + 1).map(h => (
+                                <option key={h} value={h}>{h}h</option>
+                              ))}
+                            </select>
+                          )}
+                          {rem.type === 'days' && (
+                            <select
+                              value={rem.value}
+                              onChange={e => {
+                                const updated = [...newReminders];
+                                updated[idx] = { ...updated[idx], value: parseInt(e.target.value) };
+                                setNewReminders(updated);
+                              }}
+                              className="px-2 py-1 border rounded text-xs"
+                            >
+                              {Array.from({ length: 30 }, (_, i) => i + 1).map(d => (
+                                <option key={d} value={d}>{d} {d === 1 ? 'dan' : d === 2 ? 'dneva' : 'dni'}</option>
+                              ))}
+                            </select>
+                          )}
+                          {rem.type === 'custom' && (
+                            <>
+                              <input
+                                type="date"
+                                value={rem.customDate || ''}
+                                onChange={e => {
+                                  const updated = [...newReminders];
+                                  updated[idx] = { ...updated[idx], customDate: e.target.value };
+                                  setNewReminders(updated);
+                                }}
+                                className="px-2 py-1 border rounded text-xs"
+                              />
+                              <input
+                                type="time"
+                                value={rem.customTime || '09:00'}
+                                onChange={e => {
+                                  const updated = [...newReminders];
+                                  updated[idx] = { ...updated[idx], customTime: e.target.value };
+                                  setNewReminders(updated);
+                                }}
+                                className="px-2 py-1 border rounded text-xs"
+                              />
+                            </>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => setNewReminders(prev => prev.filter((_, i) => i !== idx))}
+                            className="p-1 text-red-500 hover:bg-red-50 rounded ml-auto"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
                   <div>
                     <label className="block text-xs font-medium text-gray-600 mb-1.5">Razredi</label>
                     <div className="flex gap-1 flex-wrap">
@@ -776,6 +893,20 @@ export default function ScheduleView({ classId, className, title }: Props) {
                         </button>
                       ))}
                     </div>
+                  </div>
+
+                  {/* Dodajanje v koledar */}
+                  <div className="pt-2 border-t border-gray-100 flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      id="newAddToCalendar"
+                      checked={newAddToCalendar}
+                      onChange={e => setNewAddToCalendar(e.target.checked)}
+                      className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500 cursor-pointer"
+                    />
+                    <label htmlFor="newAddToCalendar" className="text-xs font-medium text-gray-700 cursor-pointer">
+                      Dodaj dogodek tudi v koledar (CalendarPage)
+                    </label>
                   </div>
                 </div>
 
