@@ -1,12 +1,14 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import * as api from '../api';
-import { CalendarEvent, Recurrence, EventReminder } from '../types';
+import { CalendarEvent, Recurrence, EventReminder, SchoolClass } from '../types';
 import { Plus, Trash2, Edit2, Save, X, CalendarDays, ChevronLeft, ChevronRight, Clock, Repeat, Bell } from 'lucide-react';
 import { format, startOfMonth, endOfMonth, startOfWeek, addDays, isSameMonth, parseISO, addMonths, subMonths } from 'date-fns';
 import { sl } from 'date-fns/locale';
+
 const EVENT_COLORS = [
   '#EF4444', '#F97316', '#F59E0B', '#10B981', '#3B82F6', '#8B5CF6', '#EC4899', '#6B7280',
 ];
+
 const RECURRENCE_OPTIONS: { value: Recurrence; label: string }[] = [
   { value: 'none', label: 'Enkratno' },
   { value: 'range', label: 'Razpon datumov' },
@@ -16,8 +18,10 @@ const RECURRENCE_OPTIONS: { value: Recurrence; label: string }[] = [
   { value: 'triweekly', label: 'Vsak tretji teden' },
   { value: 'monthly', label: 'Vsak mesec' },
 ];
+
 const recurrenceLabel = (r: Recurrence) =>
   RECURRENCE_OPTIONS.find(o => o.value === r)?.label || 'Enkratno';
+
 interface FormState {
   title: string;
   color: string;
@@ -28,7 +32,10 @@ interface FormState {
   recurrence: Recurrence;
   note: string;
   reminders: EventReminder[];
+  classIds: string[];
+  addToSchedule: boolean;
 }
+
 const emptyForm = (): FormState => ({
   title: '',
   color: EVENT_COLORS[4],
@@ -39,13 +46,17 @@ const emptyForm = (): FormState => ({
   recurrence: 'none',
   note: '',
   reminders: [],
+  classIds: [],
+  addToSchedule: true,
 });
+
 const DAYS_SL = ['Pon', 'Tor', 'Sre', 'Čet', 'Pet', 'Sob', 'Ned'];
 
 import { getSlovenianHolidays } from '../holidays';
 
 export default function CalendarPage() {
   const [events, setEvents] = useState<CalendarEvent[]>([]);
+  const [classesList, setClassesList] = useState<SchoolClass[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<string | null>(format(new Date(), 'yyyy-MM-dd'));
@@ -56,10 +67,9 @@ export default function CalendarPage() {
   const [form, setForm] = useState<FormState>(emptyForm());
   const [saving, setSaving] = useState(false);
 
-  // Spremenljivke za zaznavanje potega (swipe)
   const touchStartX = useRef<number | null>(null);
   const touchEndX = useRef<number | null>(null);
-  const minSwipeDistance = 50; // Minimalna razdalja v pikslih za zaznavo potega
+  const minSwipeDistance = 50;
 
   const onTouchStart = (e: React.TouchEvent) => {
     touchEndX.current = null;
@@ -73,22 +83,25 @@ export default function CalendarPage() {
   const onTouchEnd = () => {
     if (!touchStartX.current || !touchEndX.current) return;
     const distance = touchStartX.current - touchEndX.current;
-    const isLeftSwipe = distance > minSwipeDistance;
-    const isRightSwipe = distance < -minSwipeDistance;
-
-    if (isLeftSwipe) {
-      // Poteg v levo -> naslednji mesec
+    if (distance > minSwipeDistance) {
       setCurrentMonth(addMonths(currentMonth, 1));
-    } else if (isRightSwipe) {
-      // Poteg v desno -> prejšnji mesec
+    } else if (distance < -minSwipeDistance) {
       setCurrentMonth(subMonths(currentMonth, 1));
     }
   };
 
   const refresh = () => {
-    api.getCalendarEvents().then(setEvents).finally(() => setLoading(false));
+    Promise.all([
+      api.getCalendarEvents(),
+      api.getClasses()
+    ]).then(([evs, cls]) => {
+      setEvents(evs);
+      setClassesList(cls);
+    }).finally(() => setLoading(false));
   };
+
   useEffect(() => { refresh(); }, []);
+
   useEffect(() => {
     if (selectedDate) {
       setDayLoading(true);
@@ -112,13 +125,22 @@ export default function CalendarPage() {
   const eventCountForDay = (date: Date): number => {
     const dateStr = format(date, 'yyyy-MM-dd');
     return events.filter(e => {
-      if (e.recurrence === 'range') {
-        return e.date <= dateStr && (e.endDate || e.date) >= dateStr;
+      if (e.endDate && e.date <= dateStr && e.endDate >= dateStr) return true;
+      if (!e.endDate && e.recurrence === 'range') {
+        return e.date <= dateStr;
       }
       if (e.recurrence === 'none' || !e.recurrence) return e.date === dateStr;
       if (e.recurrence === 'daily') return e.date <= dateStr;
       if (e.recurrence === 'weekly') return e.date <= dateStr && date.getDay() === parseISO(e.date).getDay();
-      if (e.recurrence === 'monthly') return e.date <= dateStr && parseISO(e.date).getDate() === date.getDate();
+      if (e.recurrence === 'biweekly') {
+        const diffDays = Math.floor((parseISO(dateStr).getTime() - parseISO(e.date).getTime()) / (1000 * 60 * 60 * 24));
+        return e.date <= dateStr && date.getDay() === parseISO(e.date).getDay() && diffDays >= 0 && Math.floor(diffDays / 7) % 2 === 0;
+      }
+      if (e.recurrence === 'triweekly') {
+        const diffDays = Math.floor((parseISO(dateStr).getTime() - parseISO(e.date).getTime()) / (1000 * 60 * 60 * 24));
+        return e.date <= dateStr && date.getDay() === parseISO(e.date).getDay() && diffDays >= 0 && Math.floor(diffDays / 7) % 3 === 0;
+      }
+      if (e.recurrence === 'monthly') return e.date <= dateStr && parseISO(e.date).getDate() === parseISO(dateStr).getDate();
       return false;
     }).length;
   };
@@ -126,8 +148,7 @@ export default function CalendarPage() {
   const validate = () => {
     if (!form.title.trim() || !form.date || !form.startTime || !form.endTime) return false;
     if (form.startTime >= form.endTime) { alert('Ura začetka mora biti pred uro konca.'); return false; }
-    if (form.recurrence === 'range' && !form.endDate) { alert('Razpon zahteva končni datum.'); return false; }
-    if (form.recurrence === 'range' && form.endDate < form.date) { alert('Končni datum mora biti po začetnem.'); return false; }
+    if (form.recurrence !== 'none' && form.endDate && form.endDate < form.date) { alert('Končni datum mora biti po začetnem datumu.'); return false; }
     return true;
   };
 
@@ -136,14 +157,36 @@ export default function CalendarPage() {
     setSaving(true);
     try {
       await api.createCalendarEvent({
-        title: form.title, color: form.color, date: form.date,
-        endDate: form.recurrence === 'range' ? form.endDate : undefined,
-        startTime: form.startTime, endTime: form.endTime,
-        recurrence: form.recurrence, note: form.note || undefined,
+        title: form.title, 
+        color: form.color, 
+        date: form.date,
+        endDate: form.recurrence !== 'none' ? form.endDate || undefined : undefined,
+        startTime: form.startTime, 
+        endTime: form.endTime,
+        recurrence: form.recurrence, 
+        note: form.note || undefined,
         reminders: form.reminders,
       });
-      setForm(emptyForm()); setShowForm(false); refresh();
-    } finally { setSaving(false); }
+
+      if (form.addToSchedule) {
+        await api.createEvent({
+          title: form.title,
+          color: form.color,
+          date: form.date,
+          endDate: form.recurrence !== 'none' ? form.endDate || undefined : undefined,
+          startTime: form.startTime,
+          endTime: form.endTime,
+          recurrence: form.recurrence,
+          classIds: form.classIds,
+        });
+      }
+
+      setForm(emptyForm()); 
+      setShowForm(false); 
+      refresh();
+    } finally { 
+      setSaving(false); 
+    }
   };
 
   const handleUpdate = async (id: string) => {
@@ -151,24 +194,48 @@ export default function CalendarPage() {
     setSaving(true);
     try {
       await api.updateCalendarEvent(id, {
-        title: form.title, color: form.color, date: form.date,
-        endDate: form.recurrence === 'range' ? form.endDate : undefined,
-        startTime: form.startTime, endTime: form.endTime,
-        recurrence: form.recurrence, note: form.note || undefined,
+        title: form.title, 
+        color: form.color, 
+        date: form.date,
+        endDate: form.recurrence !== 'none' ? form.endDate || undefined : undefined,
+        startTime: form.startTime, 
+        endTime: form.endTime,
+        recurrence: form.recurrence, 
+        note: form.note || undefined,
         reminders: form.reminders,
       });
-      setEditingId(null); refresh();
-    } finally { setSaving(false); }
+
+      setEditingId(null); 
+      refresh();
+    } finally { 
+      setSaving(false); 
+    }
   };
 
   const handleDelete = async (id: string) => {
-    if (confirm('Ali ste prepričani?')) { await api.deleteCalendarEvent(id); refresh(); }
+    if (confirm('Ali ste prepričani?')) { 
+      await api.deleteCalendarEvent(id); 
+      refresh(); 
+    }
   };
 
   const startEdit = (e: CalendarEvent) => {
     setEditingId(e.id);
-    setForm({ title: e.title, color: e.color, date: e.date, endDate: e.endDate || '', startTime: e.startTime, endTime: e.endTime, recurrence: e.recurrence, note: e.note || '', reminders: e.reminders || [] });
+    setForm({ 
+      title: e.title, 
+      color: e.color, 
+      date: e.date, 
+      endDate: e.endDate || '', 
+      startTime: e.startTime, 
+      endTime: e.endTime, 
+      recurrence: e.recurrence, 
+      note: e.note || '', 
+      reminders: e.reminders || [],
+      classIds: [],
+      addToSchedule: false 
+    });
   };
+
   const today = format(new Date(), 'yyyy-MM-dd');
 
   const holidays = useMemo(() => {
@@ -199,12 +266,18 @@ export default function CalendarPage() {
       {showForm && (
         <div className="bg-white rounded-xl shadow-sm p-5 mb-6 border-l-4 border-blue-500">
           <h3 className="font-semibold text-gray-800 mb-3">Nov koledarski dogodek</h3>
-          <EventForm form={form} setForm={setForm} saving={saving} onSave={handleCreate} onCancel={() => setShowForm(false)} />
+          <EventForm 
+            form={form} 
+            setForm={setForm} 
+            classesList={classesList} 
+            saving={saving} 
+            onSave={handleCreate} 
+            onCancel={() => setShowForm(false)} 
+          />
         </div>
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Calendar grid z dodanimi touch dogodki za poteg */}
         <div 
           className="lg:col-span-2 bg-white rounded-xl shadow-sm overflow-hidden select-none"
           onTouchStart={onTouchStart}
@@ -281,7 +354,6 @@ export default function CalendarPage() {
           )}
         </div>
 
-        {/* Selected day detail */}
         <div className="bg-white rounded-xl shadow-sm overflow-hidden">
           <div className="px-4 py-3 bg-gray-50 border-b border-gray-100">
             <h3 className="font-semibold text-gray-800 text-sm">
@@ -310,7 +382,14 @@ export default function CalendarPage() {
                   <div key={e.id} className="p-3">
                     {isEditing ? (
                       <div className="space-y-3">
-                        <EventForm form={form} setForm={setForm} saving={saving} onSave={() => handleUpdate(e.id)} onCancel={() => setEditingId(null)} compact />
+                        <EventForm 
+                          form={form} 
+                          setForm={setForm} 
+                          classesList={classesList} 
+                          saving={saving} 
+                          onSave={() => handleUpdate(e.id)} 
+                          onCancel={() => setEditingId(null)} 
+                        />
                       </div>
                     ) : (
                       <div className="flex items-start gap-3">
@@ -323,7 +402,7 @@ export default function CalendarPage() {
                               <span className="flex items-center gap-1 px-1.5 py-0.5 bg-indigo-50 text-indigo-600 rounded text-[10px] font-medium">
                                 <Repeat className="w-2.5 h-2.5" />
                                 {recurrenceLabel(e.recurrence)}
-                                {e.recurrence === 'range' && e.endDate && ` do ${format(parseISO(e.endDate), 'd.M.yyyy')}`}
+                                {e.endDate && ` do ${format(parseISO(e.endDate), 'd.M.yyyy')}`}
                               </span>
                             )}
                           </div>
@@ -346,17 +425,26 @@ export default function CalendarPage() {
   );
 }
 
-function EventForm({ form, setForm, saving, onSave, onCancel, compact }: {
+function EventForm({ form, setForm, classesList, saving, onSave, onCancel }: {
   form: FormState;
   setForm: (f: FormState) => void;
+  classesList: SchoolClass[];
   saving: boolean;
   onSave: () => void;
   onCancel: () => void;
-  compact?: boolean;
 }) {
+  const toggleClass = (classId: string) => {
+    setForm({
+      ...form,
+      classIds: form.classIds.includes(classId)
+        ? form.classIds.filter(id => id !== classId)
+        : [...form.classIds, classId],
+    });
+  };
+
   return (
-    <div className={compact ? 'space-y-2' : 'space-y-4'}>
-      <div className={`grid gap-3 ${compact ? 'grid-cols-1' : 'grid-cols-1 md:grid-cols-2'}`}>
+    <div className="space-y-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
         <div>
           <label className="block text-xs text-gray-500 mb-1">Naziv</label>
           <input value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} placeholder="npr. Zobozdravnik" className="w-full px-3 py-2 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 text-sm" />
@@ -368,134 +456,175 @@ function EventForm({ form, setForm, saving, onSave, onCancel, compact }: {
           </select>
         </div>
       </div>
-      <div className={`grid gap-3 ${compact ? 'grid-cols-2' : 'grid-cols-2 md:grid-cols-4'}`}>
+
+      <div className={`grid gap-3 ${form.recurrence !== 'none' ? 'grid-cols-1 md:grid-cols-3' : 'grid-cols-1 md:grid-cols-2'}`}>
         <div>
-          <label className="block text-xs text-gray-500 mb-1">{form.recurrence === 'range' ? 'Od' : 'Datum'}</label>
+          <label className="block text-xs text-gray-500 mb-1">
+            {form.recurrence === 'none' ? 'Datum' : 'Datum začetka (Od)'}
+          </label>
           <input type="date" value={form.date} onChange={e => setForm({ ...form, date: e.target.value })} className="w-full px-3 py-2 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 text-sm" />
         </div>
-        {form.recurrence === 'range' && (
+
+        {form.recurrence !== 'none' && (
           <div>
-            <label className="block text-xs text-gray-500 mb-1">Do</label>
-            <input type="date" value={form.endDate} onChange={e => setForm({ ...form, endDate: e.target.value })} className="w-full px-3 py-2 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 text-sm" />
+            <label className="block text-xs text-gray-500 mb-1">
+              Končni datum (Do) <span className="text-[10px] text-gray-400 font-normal">(opcijsko)</span>
+            </label>
+            <input type="date" value={form.endDate} onChange={e => setForm({ ...form, endDate: e.target.value })} className="w-full px-3 py-2 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 text-sm" placeholder="Prazno = do konca leta" />
           </div>
         )}
+
         <div>
-          <label className="block text-xs text-gray-500 mb-1">Začetek</label>
-          <input type="time" value={form.startTime} onChange={e => setForm({ ...form, startTime: e.target.value })} className="w-full px-3 py-2 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 text-sm" />
-        </div>
-        <div>
-          <label className="block text-xs text-gray-500 mb-1">Konec</label>
-          <input type="time" value={form.endTime} onChange={e => setForm({ ...form, endTime: e.target.value })} className="w-full px-3 py-2 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 text-sm" />
+          <label className="block text-xs text-gray-500 mb-1">Ura (Začetek – Konec)</label>
+          <div className="grid grid-cols-2 gap-2">
+            <input type="time" value={form.startTime} onChange={e => setForm({ ...form, startTime: e.target.value })} className="w-full px-3 py-2 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 text-sm" />
+            <input type="time" value={form.endTime} onChange={e => setForm({ ...form, endTime: e.target.value })} className="w-full px-3 py-2 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 text-sm" />
+          </div>
         </div>
       </div>
-      {!compact && (
-        <>
-          <div>
-            <label className="block text-xs text-gray-500 mb-1">Opomba (neobvezno)</label>
-            <input value={form.note} onChange={e => setForm({ ...form, note: e.target.value })} placeholder="npr. ordinacija dr. Novak" className="w-full px-3 py-2 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 text-sm" />
-          </div>
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <label className="block text-xs text-gray-500 flex items-center gap-1"><Bell className="w-3 h-3" /> Email opomniki</label>
-              <button
-                type="button"
-                onClick={() => setForm({ ...form, reminders: [...form.reminders, { type: 'hours', value: 1 }] })}
-                className="text-xs text-blue-600 hover:underline flex items-center gap-1"
+
+      <div>
+        <label className="block text-xs text-gray-500 mb-1">Opomba (neobvezno)</label>
+        <input value={form.note} onChange={e => setForm({ ...form, note: e.target.value })} placeholder="npr. ordinacija dr. Novak" className="w-full px-3 py-2 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 text-sm" />
+      </div>
+
+      <div>
+        <label className="block text-xs text-gray-500 mb-1">Razredi (za prikaz na šolskem urniku)</label>
+        <div className="flex gap-1.5 flex-wrap">
+          {classesList.map(c => (
+            <button
+              key={c.id}
+              type="button"
+              onClick={() => toggleClass(c.id)}
+              className={`px-2.5 py-1 rounded text-xs font-medium transition ${
+                form.classIds.includes(c.id) ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+              }`}
+            >
+              {c.name}
+            </button>
+          ))}
+        </div>
+        <p className="text-[10px] text-gray-400 mt-1">
+          {form.classIds.length === 0 ? 'Prazno = dogodek velja za vse razrede na urniku.' : `Izbrano razredov: ${form.classIds.length}`}
+        </p>
+      </div>
+
+      {/* Opomniki */}
+      <div>
+        <div className="flex items-center justify-between mb-2">
+          <label className="block text-xs text-gray-500 flex items-center gap-1"><Bell className="w-3 h-3" /> Email opomniki</label>
+          <button
+            type="button"
+            onClick={() => setForm({ ...form, reminders: [...form.reminders, { type: 'hours', value: 1 }] })}
+            className="text-xs text-blue-600 hover:underline flex items-center gap-1"
+          >
+            <Plus className="w-3 h-3" /> Dodaj opomnik
+          </button>
+        </div>
+        {form.reminders.length === 0 && (
+          <p className="text-xs text-gray-400">Brez opomnikov.</p>
+        )}
+        <div className="space-y-2">
+          {form.reminders.map((rem, idx) => (
+            <div key={idx} className="flex items-center gap-2 bg-gray-50 rounded-lg p-2">
+              <select
+                value={rem.type}
+                onChange={e => {
+                  const updated = [...form.reminders];
+                  updated[idx] = { ...updated[idx], type: e.target.value as 'hours' | 'days' | 'custom', value: e.target.value === 'custom' ? 0 : updated[idx].value || 1 };
+                  setForm({ ...form, reminders: updated });
+                }}
+                className="px-2 py-1 border rounded text-xs"
               >
-                <Plus className="w-3 h-3" /> Dodaj opomnik
-              </button>
-            </div>
-            {form.reminders.length === 0 && (
-              <p className="text-xs text-gray-400">Brez opomnikov.</p>
-            )}
-            <div className="space-y-2">
-              {form.reminders.map((rem, idx) => (
-                <div key={idx} className="flex items-center gap-2 bg-gray-50 rounded-lg p-2">
-                  <select
-                    value={rem.type}
+                <option value="hours">Ur prej</option>
+                <option value="days">Dni prej</option>
+                <option value="custom">Točen datum</option>
+              </select>
+              {rem.type === 'hours' && (
+                <select
+                  value={rem.value}
+                  onChange={e => {
+                    const updated = [...form.reminders];
+                    updated[idx] = { ...updated[idx], value: parseInt(e.target.value) };
+                    setForm({ ...form, reminders: updated });
+                  }}
+                  className="px-2 py-1 border rounded text-xs"
+                >
+                  {Array.from({ length: 23 }, (_, i) => i + 1).map(h => (
+                    <option key={h} value={h}>{h}h</option>
+                  ))}
+                </select>
+              )}
+              {rem.type === 'days' && (
+                <select
+                  value={rem.value}
+                  onChange={e => {
+                    const updated = [...form.reminders];
+                    updated[idx] = { ...updated[idx], value: parseInt(e.target.value) };
+                    setForm({ ...form, reminders: updated });
+                  }}
+                  className="px-2 py-1 border rounded text-xs"
+                >
+                  {Array.from({ length: 30 }, (_, i) => i + 1).map(d => (
+                    <option key={d} value={d}>{d} {d === 1 ? 'dan' : d === 2 ? 'dneva' : d <= 4 ? 'dni' : 'dni'}</option>
+                  ))}
+                </select>
+              )}
+              {rem.type === 'custom' && (
+                <>
+                  <input
+                    type="date"
+                    value={rem.customDate || ''}
                     onChange={e => {
                       const updated = [...form.reminders];
-                      updated[idx] = { ...updated[idx], type: e.target.value as 'hours' | 'days' | 'custom', value: e.target.value === 'custom' ? 0 : updated[idx].value || 1 };
+                      updated[idx] = { ...updated[idx], customDate: e.target.value };
                       setForm({ ...form, reminders: updated });
                     }}
                     className="px-2 py-1 border rounded text-xs"
-                  >
-                    <option value="hours">Ur prej</option>
-                    <option value="days">Dni prej</option>
-                    <option value="custom">Točen datum</option>
-                  </select>
-                  {rem.type === 'hours' && (
-                    <select
-                      value={rem.value}
-                      onChange={e => {
-                        const updated = [...form.reminders];
-                        updated[idx] = { ...updated[idx], value: parseInt(e.target.value) };
-                        setForm({ ...form, reminders: updated });
-                      }}
-                      className="px-2 py-1 border rounded text-xs"
-                    >
-                      {Array.from({ length: 23 }, (_, i) => i + 1).map(h => (
-                        <option key={h} value={h}>{h}h</option>
-                      ))}
-                    </select>
-                  )}
-                  {rem.type === 'days' && (
-                    <select
-                      value={rem.value}
-                      onChange={e => {
-                        const updated = [...form.reminders];
-                        updated[idx] = { ...updated[idx], value: parseInt(e.target.value) };
-                        setForm({ ...form, reminders: updated });
-                      }}
-                      className="px-2 py-1 border rounded text-xs"
-                    >
-                      {Array.from({ length: 30 }, (_, i) => i + 1).map(d => (
-                        <option key={d} value={d}>{d} {d === 1 ? 'dan' : d === 2 ? 'dneva' : d <= 4 ? 'dni' : 'dni'}</option>
-                      ))}
-                    </select>
-                  )}
-                  {rem.type === 'custom' && (
-                    <>
-                      <input
-                        type="date"
-                        value={rem.customDate || ''}
-                        onChange={e => {
-                          const updated = [...form.reminders];
-                          updated[idx] = { ...updated[idx], customDate: e.target.value };
-                          setForm({ ...form, reminders: updated });
-                        }}
-                        className="px-2 py-1 border rounded text-xs"
-                      />
-                      <input
-                        type="time"
-                        value={rem.customTime || '09:00'}
-                        onChange={e => {
-                          const updated = [...form.reminders];
-                          updated[idx] = { ...updated[idx], customTime: e.target.value };
-                          setForm({ ...form, reminders: updated });
-                        }}
-                        className="px-2 py-1 border rounded text-xs"
-                      />
-                    </>
-                  )}
-                  <button
-                    type="button"
-                    onClick={() => setForm({ ...form, reminders: form.reminders.filter((_, i) => i !== idx) })}
-                    className="p-1 text-red-500 hover:bg-red-50 rounded"
-                  >
-                    <Trash2 className="w-3 h-3" />
-                  </button>
-                </div>
-              ))}
+                  />
+                  <input
+                    type="time"
+                    value={rem.customTime || '09:00'}
+                    onChange={e => {
+                      const updated = [...form.reminders];
+                      updated[idx] = { ...updated[idx], customTime: e.target.value };
+                      setForm({ ...form, reminders: updated });
+                    }}
+                    className="px-2 py-1 border rounded text-xs"
+                  />
+                </>
+              )}
+              <button
+                type="button"
+                onClick={() => setForm({ ...form, reminders: form.reminders.filter((_, i) => i !== idx) })}
+                className="p-1 text-red-500 hover:bg-red-50 rounded"
+              >
+                <Trash2 className="w-3 h-3" />
+              </button>
             </div>
-          </div>
-        </>
-      )}
+          ))}
+        </div>
+      </div>
+
       <div className="flex gap-1 flex-wrap">
         {EVENT_COLORS.map(c => (
-          <button key={c} onClick={() => setForm({ ...form, color: c })} className={`w-6 h-6 rounded-full transition ${form.color === c ? 'ring-2 ring-offset-1 ring-gray-400 scale-110' : 'hover:scale-110'}`} style={{ backgroundColor: c }} />
+          <button key={c} type="button" onClick={() => setForm({ ...form, color: c })} className={`w-6 h-6 rounded-full transition ${form.color === c ? 'ring-2 ring-offset-1 ring-gray-400 scale-110' : 'hover:scale-110'}`} style={{ backgroundColor: c }} />
         ))}
       </div>
+
+      <div className="pt-2 border-t border-gray-100 flex items-center gap-2">
+        <input
+          type="checkbox"
+          id="addToSchedule"
+          checked={form.addToSchedule}
+          onChange={e => setForm({ ...form, addToSchedule: e.target.checked })}
+          className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500 cursor-pointer"
+        />
+        <label htmlFor="addToSchedule" className="text-xs font-medium text-gray-700 cursor-pointer">
+          Prikaži dogodek tudi med šolskimi dogodki (EventsPage in ScheduleView)
+        </label>
+      </div>
+
       <div className="flex flex-col gap-2">
         <button onClick={onSave} disabled={saving} className="w-full bg-green-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-green-700 transition flex items-center justify-center gap-1 text-sm disabled:opacity-50"><Save className="w-4 h-4" /> Shrani</button>
         <button onClick={onCancel} className="w-full bg-gray-200 text-gray-700 px-4 py-2 rounded-lg font-medium hover:bg-gray-300 transition flex items-center justify-center gap-1 text-sm"><X className="w-4 h-4" /> Prekliči</button>
