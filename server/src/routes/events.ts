@@ -43,20 +43,20 @@ function recurrenceWhere(dateParam: string): string {
     OR
     ((recurrence IS NULL OR recurrence = 'none' OR recurrence = '') AND event_date = ${d})
     OR
-    (recurrence = 'daily'     AND event_date <= ${d})
+    (recurrence = 'daily'     AND event_date <= ${d} AND (end_date IS NULL OR ${d} <= end_date))
     OR
-    (recurrence = 'weekly'    AND event_date <= ${d}
+    (recurrence = 'weekly'    AND event_date <= ${d} AND (end_date IS NULL OR ${d} <= end_date)
                               AND EXTRACT(ISODOW FROM event_date) = EXTRACT(ISODOW FROM ${d}))
     OR
-    (recurrence = 'biweekly'  AND event_date <= ${d}
+    (recurrence = 'biweekly'  AND event_date <= ${d} AND (end_date IS NULL OR ${d} <= end_date)
                               AND EXTRACT(ISODOW FROM event_date) = EXTRACT(ISODOW FROM ${d})
                               AND MOD( (${d} - event_date) / 7 , 2) = 0)
     OR
-    (recurrence = 'triweekly' AND event_date <= ${d}
+    (recurrence = 'triweekly' AND event_date <= ${d} AND (end_date IS NULL OR ${d} <= end_date)
                               AND EXTRACT(ISODOW FROM event_date) = EXTRACT(ISODOW FROM ${d})
                               AND MOD( (${d} - event_date) / 7 , 3) = 0)
     OR
-    (recurrence = 'monthly'   AND event_date <= ${d}
+    (recurrence = 'monthly'   AND event_date <= ${d} AND (end_date IS NULL OR ${d} <= end_date)
                               AND EXTRACT(DAY FROM event_date) = EXTRACT(DAY FROM ${d}))
   )`;
 }
