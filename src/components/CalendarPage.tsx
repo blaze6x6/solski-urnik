@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import * as api from '../api';
 import { CalendarEvent, Recurrence, EventReminder, SchoolClass } from '../types';
-import { Plus, Trash2, Edit2, Save, X, CalendarDays, ChevronLeft, ChevronRight, Clock, Repeat, Bell } from 'lucide-react';
+import { Plus, Trash2, Edit2, Save, X, CalendarDays, ChevronLeft, ChevronRight, Clock, Repeat, Bell, AlertTriangle } from 'lucide-react';
 import { format, startOfMonth, endOfMonth, startOfWeek, addDays, isSameMonth, parseISO, addMonths, subMonths } from 'date-fns';
 import { sl } from 'date-fns/locale';
 
@@ -66,6 +66,11 @@ export default function CalendarPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<FormState>(emptyForm());
   const [saving, setSaving] = useState(false);
+
+  // Stanje za modalno okno za brisanje z možnostjo sinhronizacije
+  const [deletingEvent, setDeletingEvent] = useState<CalendarEvent | null>(null);
+  const [deleteFromSchedule, setDeleteFromSchedule] = useState(true);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const touchStartX = useRef<number | null>(null);
   const touchEndX = useRef<number | null>(null);
@@ -212,10 +217,35 @@ export default function CalendarPage() {
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (confirm('Ali ste prepričani?')) { 
-      await api.deleteCalendarEvent(id); 
-      refresh(); 
+  // Potrdi brisanje z možnostjo brisanja tudi iz šolskih dogodkov
+  const confirmDelete = async () => {
+    if (!deletingEvent) return;
+    setIsDeleting(true);
+    try {
+      // 1. Izbriši iz koledarja
+      await api.deleteCalendarEvent(deletingEvent.id);
+
+      // 2. Če je izbrano, poišči in izbriši ustrezen dogodek tudi iz EventsPage / ScheduleView
+      if (deleteFromSchedule) {
+        try {
+          const schoolEvents = await api.getEvents();
+          const matchingEvent = schoolEvents.find(
+            ev => ev.title.trim().toLowerCase() === deletingEvent.title.trim().toLowerCase() &&
+                  ev.date === deletingEvent.date &&
+                  ev.startTime === deletingEvent.startTime
+          );
+          if (matchingEvent) {
+            await api.deleteEvent(matchingEvent.id);
+          }
+        } catch (err) {
+          console.error('Napaka pri sinhroniziranem brisanju šolskega dogodka:', err);
+        }
+      }
+
+      setDeletingEvent(null);
+      refresh();
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -410,7 +440,7 @@ export default function CalendarPage() {
                         </div>
                         <div className="flex gap-0.5 shrink-0">
                           <button onClick={() => startEdit(e)} className="p-1 text-blue-600 hover:bg-blue-50 rounded"><Edit2 className="w-3.5 h-3.5" /></button>
-                          <button onClick={() => handleDelete(e.id)} className="p-1 text-red-600 hover:bg-red-50 rounded"><Trash2 className="w-3.5 h-3.5" /></button>
+                          <button onClick={() => setDeletingEvent(e)} className="p-1 text-red-600 hover:bg-red-50 rounded"><Trash2 className="w-3.5 h-3.5" /></button>
                         </div>
                       </div>
                     )}
@@ -421,6 +451,52 @@ export default function CalendarPage() {
           )}
         </div>
       </div>
+
+      {/* Modalno okno za potrditev brisanja */}
+      {deletingEvent && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50 animate-fade-in">
+          <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6 relative space-y-4 border border-gray-100">
+            <div className="flex items-center gap-3 text-red-600">
+              <AlertTriangle className="w-6 h-6 shrink-0" />
+              <h3 className="text-lg font-bold text-gray-800">Izbris dogodka</h3>
+            </div>
+
+            <p className="text-sm text-gray-600">
+              Ali ste prepričani, da želite izbrisati dogodek <strong className="text-gray-800">"{deletingEvent.title}"</strong>?
+            </p>
+
+            <div className="pt-2 border-t border-gray-100 flex items-center gap-2">
+              <input
+                type="checkbox"
+                id="deleteFromSchedule"
+                checked={deleteFromSchedule}
+                onChange={e => setDeleteFromSchedule(e.target.checked)}
+                className="w-4 h-4 text-red-600 rounded border-gray-300 focus:ring-red-500 cursor-pointer"
+              />
+              <label htmlFor="deleteFromSchedule" className="text-xs font-medium text-gray-700 cursor-pointer">
+                Hkrati izbriši tudi iz šolskih dogodkov (EventsPage in ScheduleView)
+              </label>
+            </div>
+
+            <div className="flex gap-2 pt-2">
+              <button
+                onClick={confirmDelete}
+                disabled={isDeleting}
+                className="flex-1 bg-red-600 text-white py-2.5 rounded-xl font-medium hover:bg-red-700 transition text-sm flex items-center justify-center gap-1.5 disabled:opacity-50"
+              >
+                {isDeleting ? 'Brisanje...' : 'Da, izbriši'}
+              </button>
+              <button
+                onClick={() => setDeletingEvent(null)}
+                disabled={isDeleting}
+                className="bg-gray-200 text-gray-700 px-4 py-2.5 rounded-xl font-medium hover:bg-gray-300 transition text-sm"
+              >
+                Prekliči
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
