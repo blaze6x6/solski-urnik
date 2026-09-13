@@ -69,12 +69,15 @@ export default function ScheduleView({ classId, className, title }: Props) {
   const [selectedItem, setSelectedItem] = useState<SelectedItemInfo | null>(null);
   const [showConfirmCancel, setShowConfirmCancel] = useState(false);
 
-  // Stanje za nov vnos v prazni celici z ročnimi nastavitvami časa
+  // Stanje za nov vnos v prazni celici z ročnimi nastavitvami
   const [newTitle, setNewTitle] = useState('');
+  const [newDate, setNewDate] = useState('');
+  const [newEndDate, setNewEndDate] = useState('');
   const [newStartTime, setNewStartTime] = useState('08:00');
   const [newEndTime, setNewEndTime] = useState('09:00');
   const [newColor, setNewColor] = useState(EVENT_COLORS[4].value);
   const [newRecurrence, setNewRecurrence] = useState<Recurrence>('none');
+  const [newClassIds, setNewClassIds] = useState<string[]>(classId ? [classId] : []);
   const [savingNew, setSavingNew] = useState(false);
 
   const [touchStart, setTouchStart] = useState<number | null>(null);
@@ -238,18 +241,23 @@ export default function ScheduleView({ classId, className, title }: Props) {
   };
 
   const handleCreateNewEvent = async () => {
-    if (!selectedItem || !newTitle.trim()) return;
+    if (!newTitle.trim() || !newDate) return;
     if (newStartTime >= newEndTime) {
       alert('Ura začetka mora biti pred uro konca.');
+      return;
+    }
+    if (newEndDate && newEndDate < newDate) {
+      alert('Končni datum mora biti po začetnem datumu.');
       return;
     }
     setSavingNew(true);
     try {
       await api.createEvent({
-        date: selectedItem.dateStr!,
+        date: newDate,
+        endDate: newEndDate || undefined,
         title: newTitle.trim(),
         color: newColor,
-        classIds: classId ? [classId] : [],
+        classIds: newClassIds,
         startTime: newStartTime,
         endTime: newEndTime,
         recurrence: newRecurrence,
@@ -528,10 +536,13 @@ export default function ScheduleView({ classId, className, title }: Props) {
                               onClick={() => {
                                 if (eventsForCell.length === 0 && !subject) {
                                   setNewTitle('');
+                                  setNewDate(dateStr);
+                                  setNewEndDate('');
                                   setNewStartTime(period.startTime);
                                   setNewEndTime(period.endTime);
                                   setNewColor(EVENT_COLORS[4].value);
                                   setNewRecurrence('none');
+                                  setNewClassIds(classId ? [classId] : []);
                                   setSelectedItem({
                                     id: 'new',
                                     title: 'Nov dogodek',
@@ -613,7 +624,6 @@ export default function ScheduleView({ classId, className, title }: Props) {
                                     }}
                                   >
                                     <span className="w-full font-bold text-[10px] sm:text-xs leading-tight truncate px-0.5" style={{ color: subject.color }}>
-                                      {/* Pravilno preklapljanje med kraticami na mobilnih in polnim imenom na namiznih napravah */}
                                       <span className="sm:hidden">{subject.shortName}</span>
                                       <span className="hidden sm:inline">
                                         {showFullName ? subject.name : subject.shortName}
@@ -642,7 +652,7 @@ export default function ScheduleView({ classId, className, title }: Props) {
 
       {selectedItem && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50 animate-fade-in">
-          <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6 relative space-y-4 border border-gray-100">
+          <div className="bg-white rounded-2xl shadow-xl max-w-lg w-full p-6 relative space-y-4 border border-gray-100 max-h-[90vh] overflow-y-auto">
             <button
               onClick={() => { setSelectedItem(null); setShowConfirmCancel(false); }}
               className="absolute top-4 right-4 p-2 text-gray-400 hover:bg-gray-100 rounded-full transition"
@@ -651,10 +661,10 @@ export default function ScheduleView({ classId, className, title }: Props) {
             </button>
 
             {selectedItem.isNew ? (
-              // Obrazec za hiter dodatek novega dogodka z ročno nastavitvijo časa
+              // Obrazec za hiter dodatek novega dogodka z vsemi nastavitvami datuma in ponavljanja
               <>
                 <div className="flex items-center gap-2 text-blue-600 font-bold text-lg">
-                  <Plus className="w-5 h-5" /> Nov dogodek ({selectedItem.dateStr})
+                  <Plus className="w-5 h-5" /> Nov dogodek
                 </div>
 
                 <div className="space-y-3 text-sm">
@@ -662,12 +672,39 @@ export default function ScheduleView({ classId, className, title }: Props) {
                     <label className="block text-xs font-medium text-gray-600 mb-1">Naziv dogodka</label>
                     <input
                       type="text"
-                      placeholder="npr. Izlet, Sestanek"
+                      placeholder="npr. Balet, Gasilci"
                       value={newTitle}
                       onChange={e => setNewTitle(e.target.value)}
                       className="w-full px-3 py-2 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                       autoFocus
                     />
+                  </div>
+
+                  <div className={`grid gap-3 ${newRecurrence !== 'none' ? 'grid-cols-2' : 'grid-cols-1'}`}>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">
+                        {newRecurrence === 'none' ? 'Datum' : 'Datum začetka (Od)'}
+                      </label>
+                      <input
+                        type="date"
+                        value={newDate}
+                        onChange={e => setNewDate(e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                      />
+                    </div>
+                    {newRecurrence !== 'none' && (
+                      <div>
+                        <label className="block text-xs font-medium text-gray-600 mb-1">
+                          Končni datum (Do) <span className="text-[10px] text-gray-400">(opcijsko)</span>
+                        </label>
+                        <input
+                          type="date"
+                          value={newEndDate}
+                          onChange={e => setNewEndDate(e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                        />
+                      </div>
+                    )}
                   </div>
 
                   <div className="grid grid-cols-2 gap-2">
@@ -721,6 +758,22 @@ export default function ScheduleView({ classId, className, title }: Props) {
                           style={{ backgroundColor: c.value }}
                           title={c.name}
                         />
+                      ))}
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1.5">Razredi</label>
+                    <div className="flex gap-1 flex-wrap">
+                      {classesList.map(c => (
+                        <button
+                          key={c.id}
+                          type="button"
+                          onClick={() => setNewClassIds(prev => prev.includes(c.id) ? prev.filter(id => id !== c.id) : [...prev, c.id])}
+                          className={`px-2.5 py-1 rounded text-xs font-medium ${newClassIds.includes(c.id) ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600'}`}
+                        >
+                          {c.name}
+                        </button>
                       ))}
                     </div>
                   </div>
