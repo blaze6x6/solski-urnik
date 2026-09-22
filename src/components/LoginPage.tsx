@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import * as api from '../api';
 import { User } from '../types';
-import { LogIn, School } from 'lucide-react';
+import { LogIn, School, Eye, EyeOff } from 'lucide-react';
 
 interface Props {
   onLogin: (user: User) => void;
@@ -10,6 +10,7 @@ interface Props {
 export default function LoginPage({ onLogin }: Props) {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -17,7 +18,7 @@ export default function LoginPage({ onLogin }: Props) {
     e.preventDefault();
     setLoading(true);
     setError('');
-    
+
     try {
       const user = await api.login(username, password);
       onLogin(user);
@@ -55,15 +56,25 @@ export default function LoginPage({ onLogin }: Props) {
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Geslo</label>
-            <input
-              type="password"
-              value={password}
-              onChange={e => { setPassword(e.target.value); setError(''); }}
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition"
-              placeholder="Vnesite geslo"
-              required
-              disabled={loading}
-            />
+            <div className="relative">
+              <input
+                type={showPassword ? 'text' : 'password'}
+                value={password}
+                onChange={e => { setPassword(e.target.value); setError(''); }}
+                className="w-full px-4 py-3 pr-12 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition"
+                placeholder="Vnesite geslo"
+                required
+                disabled={loading}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                tabIndex={-1}
+                className="absolute inset-y-0 right-0 flex items-center pr-3.5 text-gray-400 hover:text-gray-600 focus:outline-none transition"
+              >
+                {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+              </button>
+            </div>
           </div>
 
           {error && (
@@ -87,7 +98,7 @@ export default function LoginPage({ onLogin }: Props) {
             )}
           </button>
         </form>
-      
+
       </div>
     </div>
   );
