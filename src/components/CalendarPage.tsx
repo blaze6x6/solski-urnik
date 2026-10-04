@@ -127,27 +127,36 @@ export default function CalendarPage() {
     return days;
   }, [currentMonth]);
 
-  const eventCountForDay = (date: Date): number => {
+  const eventsForDay = (date: Date): CalendarEvent[] => {
     const dateStr = format(date, 'yyyy-MM-dd');
+    const targetDate = parseISO(dateStr);
     return events.filter(e => {
+      // Range with explicit endDate
       if (e.endDate && e.date <= dateStr && e.endDate >= dateStr) return true;
-      if (!e.endDate && e.recurrence === 'range') {
-        return e.date <= dateStr;
-      }
+      // Range without endDate (indefinite)
+      if (!e.endDate && e.recurrence === 'range') return e.date <= dateStr;
+      // Single
       if (e.recurrence === 'none' || !e.recurrence) return e.date === dateStr;
+      // Daily
       if (e.recurrence === 'daily') return e.date <= dateStr;
+      // Weekly
       if (e.recurrence === 'weekly') return e.date <= dateStr && date.getDay() === parseISO(e.date).getDay();
+      // Biweekly
       if (e.recurrence === 'biweekly') {
-        const diffDays = Math.floor((parseISO(dateStr).getTime() - parseISO(e.date).getTime()) / (1000 * 60 * 60 * 24));
-        return e.date <= dateStr && date.getDay() === parseISO(e.date).getDay() && diffDays >= 0 && Math.floor(diffDays / 7) % 2 === 0;
+        if (e.date > dateStr || date.getDay() !== parseISO(e.date).getDay()) return false;
+        const diffDays = Math.floor((targetDate.getTime() - parseISO(e.date).getTime()) / (1000 * 60 * 60 * 24));
+        return diffDays >= 0 && Math.floor(diffDays / 7) % 2 === 0;
       }
+      // Triweekly
       if (e.recurrence === 'triweekly') {
-        const diffDays = Math.floor((parseISO(dateStr).getTime() - parseISO(e.date).getTime()) / (1000 * 60 * 60 * 24));
-        return e.date <= dateStr && date.getDay() === parseISO(e.date).getDay() && diffDays >= 0 && Math.floor(diffDays / 7) % 3 === 0;
+        if (e.date > dateStr || date.getDay() !== parseISO(e.date).getDay()) return false;
+        const diffDays = Math.floor((targetDate.getTime() - parseISO(e.date).getTime()) / (1000 * 60 * 60 * 24));
+        return diffDays >= 0 && Math.floor(diffDays / 7) % 3 === 0;
       }
-      if (e.recurrence === 'monthly') return e.date <= dateStr && parseISO(e.date).getDate() === parseISO(dateStr).getDate();
+      // Monthly
+      if (e.recurrence === 'monthly') return e.date <= dateStr && parseISO(e.date).getDate() === targetDate.getDate();
       return false;
-    }).length;
+    });
   };
 
   const validate = () => {
@@ -340,7 +349,8 @@ export default function CalendarPage() {
                 const inMonth = isSameMonth(date, currentMonth);
                 const isToday = dateStr === today;
                 const isSelected = dateStr === selectedDate;
-                const count = eventCountForDay(date);
+                const dayEvts = eventsForDay(date);
+                const count = dayEvts.length;
                 const isWeekend = date.getDay() === 0 || date.getDay() === 6;
                 const holiday = holidays.get(dateStr);
                 const isHoliday = !!holiday;
@@ -371,10 +381,15 @@ export default function CalendarPage() {
                     )}
                     {count > 0 && (
                       <div className="mt-0.5 flex gap-0.5 flex-wrap relative z-10">
-                        {Array.from({ length: Math.min(count, 3) }).map((_, j) => (
-                          <div key={j} className="w-2 h-2 rounded-full bg-indigo-500" style={{ boxShadow: '0 0 0 1.5px rgba(99,102,241,0.3)' }}></div>
+                        {dayEvts.slice(0, 3).map(evt => (
+                          <div
+                            key={evt.id}
+                            className="w-2 h-2 rounded-full"
+                            style={{ backgroundColor: evt.color, boxShadow: `0 0 0 1.5px ${evt.color}40` }}
+                            title={evt.title}
+                          ></div>
                         ))}
-                        {count > 3 && <span className="text-[10px] text-indigo-500 font-medium">+{count - 3}</span>}
+                        {count > 3 && <span className="text-[10px] text-gray-500 font-medium">+{count - 3}</span>}
                       </div>
                     )}
                   </div>
