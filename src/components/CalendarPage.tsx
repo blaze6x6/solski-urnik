@@ -370,11 +370,11 @@ export default function CalendarPage() {
                       <div className="text-[8px] text-red-500 leading-tight truncate">{holiday}</div>
                     )}
                     {count > 0 && (
-                      <div className="mt-0.5 flex gap-0.5 flex-wrap">
+                      <div className="mt-0.5 flex gap-0.5 flex-wrap relative z-10">
                         {Array.from({ length: Math.min(count, 3) }).map((_, j) => (
-                          <div key={j} className="w-1.5 h-1.5 rounded-full bg-blue-500"></div>
+                          <div key={j} className="w-2 h-2 rounded-full bg-indigo-500" style={{ boxShadow: '0 0 0 1.5px rgba(99,102,241,0.3)' }}></div>
                         ))}
-                        {count > 3 && <span className="text-[9px] text-gray-400">+{count - 3}</span>}
+                        {count > 3 && <span className="text-[10px] text-indigo-500 font-medium">+{count - 3}</span>}
                       </div>
                     )}
                   </div>
